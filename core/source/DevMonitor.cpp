@@ -118,7 +118,7 @@ void sendStat(const char* tag)
 
     int bpm10 = (int)(sequencer.getCurrentTempo() * 10.0f + 0.5f);
 
-    sendf("%s t=%lu play=%d rec=%d bpm=%d.%d pat=%d pos=%d cpu=%d/%d/%d/%d ram=%u stack=%u\n",
+    sendf("%s t=%lu play=%d rec=%d bpm=%d.%d pat=%d pos=%d notesin=%d voicemode=%d cpu=%d/%d/%d/%d ram=%u stack=%u\n",
           tag,
           (unsigned long)nowMs(),
           sequencer.isPlay() ? 1 : 0,
@@ -127,6 +127,8 @@ void sendStat(const char* tag)
           bpm10 % 10,
           mtProject.values.actualPattern,
           sequencer.getActualPos(),
+          mtConfig.midi.notesInMode,
+          sequencer.getMidiInVoiceMode(),
           u.minimum,
           u.average,
           u.maximum,
