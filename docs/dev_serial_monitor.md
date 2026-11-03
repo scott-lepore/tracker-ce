@@ -6,7 +6,7 @@ polled from the main loop. It lets you inspect state, inject MIDI and key events
 files to the SD card and trigger a firmware update without touching the card.
 
 Host tool: [`tools/trackerdev.py`](../tools/trackerdev.py) (needs `pyserial`).
-Linux setup: install [`tools/99-polyend-tracker.rules`](../tools/99-polyend-tracker.rules)
+Linux setup: install [`tools/70-polyend-tracker.rules`](../tools/70-polyend-tracker.rules)
 so the port is user-accessible, ignored by ModemManager and available as `/dev/tracker`.
 
 ## Commands
