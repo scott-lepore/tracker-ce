@@ -1,3 +1,4 @@
+#include "DevSerialImpl.h"
 #include "PlatformImpl.h"
 #include "Tracker.h"
 #include "config.h"
@@ -47,6 +48,8 @@ void setup()
     platform.init();
 
     trackerInstance->init(&platform);
+
+    devSerialStart(&platform);
 }
 
 //=======================================================================
@@ -57,4 +60,6 @@ void loop()
     platform.update();
 
     trackerInstance->update();
+
+    devSerialUpdate();
 }

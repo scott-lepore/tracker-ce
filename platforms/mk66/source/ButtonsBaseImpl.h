@@ -12,6 +12,7 @@ class ButtonsBaseImpl : public SwitchGroup
     virtual void setActionCallback(ActionType action, void (*callback)(uint8_t)) override;
     void disableInterrupts();
     bool update();
+    void simulateKey(uint8_t button, uint8_t action) { buttonsDriver.simulateKey(button, action); }
 
   protected:
     Keys buttonsDriver;

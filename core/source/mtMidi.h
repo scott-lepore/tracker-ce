@@ -59,6 +59,9 @@ class UsbMidi;
 
 void midiInit(UartMidi* uartMidi, UsbMidi* usbMidi);
 void midiUpdate();
+// Dev monitor: note currently held on a sample track by per-track MIDI in, -1 = none.
+int8_t midiDevGetTrackHeldNote(uint8_t track);
+
 void handleJackNoteOn(byte channel, byte pitch, byte velocity);
 void handleJackNoteOff(byte channel, byte pitch, byte velocity);
 

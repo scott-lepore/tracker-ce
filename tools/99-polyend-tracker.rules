@@ -1,0 +1,7 @@
+# Polyend Tracker (Original) USB composite device: MIDI + CDC serial dev monitor.
+# Install: sudo cp tools/99-polyend-tracker.rules /etc/udev/rules.d/ && sudo udevadm control --reload && replug
+# - lets the logged-in user open the serial port without being in 'dialout'
+# - stops ModemManager from probing it
+# - provides a stable /dev/tracker symlink
+SUBSYSTEM=="tty", ATTRS{idVendor}=="16d0", ATTRS{idProduct}=="0e9f", TAG+="uaccess", ENV{ID_MM_DEVICE_IGNORE}="1", SYMLINK+="tracker"
+SUBSYSTEM=="usb", ATTR{idVendor}=="16d0", ATTR{idProduct}=="0e9f", TAG+="uaccess", ENV{ID_MM_DEVICE_IGNORE}="1"

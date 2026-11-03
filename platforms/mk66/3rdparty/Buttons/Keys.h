@@ -56,6 +56,9 @@ class Keys
     void setOnHold(void (*funct)(uint8_t));
 
     uint8_t isButtonPressed(uint8_t n);
+    // Dev monitor: inject a key event as if it came from the matrix.
+    // action: 0 = release, 1 = press, 2 = hold
+    void simulateKey(uint8_t button, uint8_t action);
     inline uint8_t isButtonHold(uint8_t n) { return buttonPush[n] && holdFactor[n] > 0; }
 
     uint8_t keyInt = 0;

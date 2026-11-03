@@ -91,6 +91,11 @@ uint8_t isIncomingChannelDesired(uint8_t chan)
 // Note currently held on each track's voice by MIDI in, -1 = none.
 static int8_t trackMidiHeldNote[kSampleTracks] = { -1, -1, -1, -1, -1, -1, -1, -1 };
 
+int8_t midiDevGetTrackHeldNote(uint8_t track)
+{
+    return track < kSampleTracks ? trackMidiHeldNote[track] : -1;
+}
+
 static bool isAnyTrackListeningOn(uint8_t channel)
 {
     // Only route per track from the sequencer/pattern context; sample editor,

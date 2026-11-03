@@ -2903,6 +2903,19 @@ void Sequencer::handleTrackMidiNoteOn(uint8_t track, uint8_t note, uint8_t veloc
     }
 }
 
+void Sequencer::getTrackDevInfo(uint8_t track, TrackDevInfo& out)
+{
+    out = {};
+    if (track >= kAllTracks)
+        return;
+    out.pos = player.track[track].actual_pos;
+    out.noteOpen = player.track[track].noteOpen;
+    out.note = player.track[track].stepSent.note;
+    out.instrument = player.track[track].stepSent.instrument;
+    out.lastInstrument = track < kSampleTracks ? player.trackLastInstrument[track] : -1;
+    out.muted = isTrackEngineMuted(track) != 0;
+}
+
 void Sequencer::handleTrackMidiNoteOff(uint8_t track)
 {
     if (track >= kSampleTracks)

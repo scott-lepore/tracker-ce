@@ -211,3 +211,30 @@ void Keys::refreshConfig()
     //
     //	cppserial_println("");
 }
+
+void Keys::simulateKey(uint8_t button, uint8_t action)
+{
+    if (button >= BUTTON_MAX)
+        return;
+    switch (action)
+    {
+        case 1:
+            holdTimeMs[button] = millis();
+            holdFactor[button] = 0;
+            buttonPush[button] = 1;
+            if (onPush)
+                onPush(button);
+            break;
+        case 2:
+            buttonPush[button] = 1;
+            holdFactor[button] = 1;
+            if (onHold)
+                onHold(button);
+            break;
+        default:
+            buttonPush[button] = 0;
+            if (onRelease)
+                onRelease(button);
+            break;
+    }
+}

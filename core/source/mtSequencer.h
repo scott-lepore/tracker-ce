@@ -907,6 +907,18 @@ class Sequencer
     // instrument that last sounded on that track.
     void handleTrackMidiNoteOn(uint8_t track, uint8_t note, uint8_t velocity);
     void handleTrackMidiNoteOff(uint8_t track);
+
+    // Dev monitor snapshot of one track's player state.
+    struct TrackDevInfo
+    {
+        int16_t pos;
+        bool noteOpen;
+        int8_t note;
+        uint8_t instrument;
+        int8_t lastInstrument;
+        bool muted;
+    };
+    void getTrackDevInfo(uint8_t track, TrackDevInfo& out);
     void updateTrackLengths(strPattern* pattern);
 
     uint8_t noMoreRecOpen();
