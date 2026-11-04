@@ -21,6 +21,12 @@ Profiler* Profiler::instance = nullptr;
 
 void Profiler::init()
 {
+#ifdef PLATFORM_LINUX
+    // Host: malloc never fails under overcommit, so the arena-claiming loop
+    // below would eat the whole 32-bit address space. Just reset counters.
+    resetMeasuringAudio();
+    return;
+#endif
     // allocate and then free all available memory for malloc to claim all space
     // from sbrk, so that mallinfo data includes all of it
 
@@ -54,7 +60,12 @@ void Profiler::init()
 
 size_t Profiler::freeRamBytes()
 {
+#ifdef PLATFORM_LINUX
+    // glibc's legacy mallinfo() overflows; report free heap of the main arena
+    return mallinfo2().fordblks;
+#else
     return mallinfo().fordblks;
+#endif
 }
 
 size_t Profiler::maxStackBytes()

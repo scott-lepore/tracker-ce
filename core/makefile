@@ -42,7 +42,7 @@ endif
 
 INCLUDES=-I./include -I./config -I./source -I./synth -I./libs -I./libs/Audio -I./libs/ElapsedMillis -I./libs/SerialFlash -I./libs/SPI -I./libs/Audio/utility -I./libs/FT812 -I./libs/fonts -I./libs/NewDisplay -I./interface -I./effector -I./FileManager -I./Exporter -I./AudioEngine -I./libs/Audio/Polyverb -I./AudioEngine/ConstantValues -I./AudioEngine/MasterEnhancer -I${POLYUTIL_DIR}/include -I${POLYUTIL_DIR}/3rdparty -I${POLYSYNTH_DIR}/include  
 ifeq ($(PLATFORM), LINUX)
-COMPILER_OPTIONS=-MMD -MP -fno-common -g -fstack-usage -Wall -Wextra -c -ffunction-sections -fdata-sections -fshort-enums -funsigned-char -pthread -Wno-psabi -includecassert
+COMPILER_OPTIONS=-MMD -MP -fno-common -g -fstack-usage -Wall -Wextra -c -ffunction-sections -fdata-sections -fshort-enums -funsigned-char -pthread -Wno-psabi -includeassert.h
 ifeq ($(M32), 1)
 COMPILER_OPTIONS+=-m32 -msse2 -mfpmath=sse -malign-double
 endif
