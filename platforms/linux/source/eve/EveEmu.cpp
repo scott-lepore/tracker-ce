@@ -3,6 +3,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 
 namespace
@@ -504,7 +505,7 @@ void EveEmu::cmdText(int16_t x, int16_t y, uint16_t font, uint16_t opt, const ch
     for (const char* p = s; *p; p++)
         total += blk[(uint8_t)*p & 127];
     if (opt & OPT_CENTERX) x -= (total - 1) / 2; // matches the chip's rounding (verified vs device)
-    else if (opt & OPT_RIGHTX) x -= total;
+    else if (opt & OPT_RIGHTX) x -= total - 1;
     if (opt & OPT_CENTERY) y -= (int)height / 2;
 
     dlPush((uint32_t)OP_SAVE_CONTEXT << 24);
@@ -1075,8 +1076,10 @@ void EveEmu::drawBitmap(int x, int y, uint8_t cell)
             if (identity) { u = lx; v = ly; }
             else
             {
-                u = gs.ta * lx + gs.tb * ly + gs.tc;
-                v = gs.td * lx + gs.te * ly + gs.tf;
+                // Transformed bitmaps: the chip picks texel floor(u - 0.5)
+                // (calibrated against device screenshots of rotated labels).
+                u = gs.ta * lx + gs.tb * ly + gs.tc - 0.5;
+                v = gs.td * lx + gs.te * ly + gs.tf - 0.5;
             }
             Px t;
             if (h.filter == 0 || identity)

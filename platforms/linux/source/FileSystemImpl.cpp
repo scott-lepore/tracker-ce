@@ -40,7 +40,11 @@ bool FileSystemImpl::isMacMetaFolder(const std::string& n)
 
 bool FileSystemImpl::isHiddenName(const std::string& n)
 {
-    return (!n.empty() && n[0] == '.') || n == "System Volume Information";
+    // FAT hidden attribute does not survive a copy to ext4; mirror what the
+    // firmware hides on a real card: its own Workspace (created hidden) and the
+    // legacy root Instruments folder.
+    return (!n.empty() && n[0] == '.') || n == "System Volume Information" || n == "Workspace" ||
+           n == "Instruments";
 }
 
 bool FileSystemImpl::readDir(const std::string& devicePath, std::vector<Entry>& out)
