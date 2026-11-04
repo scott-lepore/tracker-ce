@@ -3,6 +3,8 @@
 #include "Tracker.h"
 #include <chrono>
 #include <cstring>
+#include <pthread.h>
+#include <sched.h>
 
 void AudioThread::start(Tracker* t, BlockSink s, void* user, bool realtimePacing)
 {
@@ -24,6 +26,12 @@ void AudioThread::stop()
 
 void AudioThread::run()
 {
+    // Best effort real-time priority (works when the user has rtprio, e.g.
+    // via PipeWire's rtkit limits); silently ignored otherwise.
+    sched_param sp{};
+    sp.sched_priority = 70;
+    pthread_setschedparam(pthread_self(), SCHED_FIFO, &sp);
+
     using clock = std::chrono::steady_clock;
     const auto period = std::chrono::nanoseconds(
       (int64_t)(1e9 * kAudioBlockSamples / kAudioSampleRateHz + 0.5));

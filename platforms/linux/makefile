@@ -39,6 +39,18 @@ endif
 LDFLAGS     := $(ARCHFLAGS) -pthread
 LIBS        := -L$(TRACKER_DIR)/build-LINUX-ORIGINAL -lTracker -lm
 
+# ALSA: headers from libasound2-dev (any arch); for the 32-bit build link the
+# runtime .so directly so libasound2-dev:i386 is not required.
+ifneq ($(wildcard /usr/include/alsa/asoundlib.h),)
+DEFINES     += -DHAVE_ALSA
+ifeq ($(M32), 1)
+ALSA_LIB    := $(firstword $(wildcard /usr/lib/i386-linux-gnu/libasound.so /usr/lib/i386-linux-gnu/libasound.so.2))
+else
+ALSA_LIB    := -lasound
+endif
+LIBS        += $(ALSA_LIB)
+endif
+
 $(OBJ_DIR)/%.o: source/%.cpp
 	@mkdir -p $(OBJ_DIR)
 	$(CXX) $(DEFINES) $(INCLUDES) $(CXXFLAGS) -c -o "$@" "$<"
