@@ -17,6 +17,7 @@ Usage examples:
   trackerdev.py shell
 
 Needs pyserial. Port auto-detected by USB id 16d0:0e9f; override with --port or $TRACKER_PORT.
+Use --linux (or --port socket://127.0.0.1:9170) to drive the headless Linux build instead.
 """
 import argparse
 import os
@@ -40,6 +41,9 @@ BUTTONS = {
 }
 
 
+LINUX_PORT_URL = "socket://127.0.0.1:9170"  # tracker-linux dev monitor (platforms/linux)
+
+
 def find_port(explicit=None):
     if explicit:
         return explicit
@@ -55,7 +59,8 @@ def find_port(explicit=None):
 
 class Tracker:
     def __init__(self, port, timeout=3.0):
-        self.ser = serial.Serial(port, 115200, timeout=0.05, write_timeout=10)
+        # serial_for_url accepts both device paths and URLs such as socket://host:port
+        self.ser = serial.serial_for_url(port, baudrate=115200, timeout=0.05, write_timeout=10)
         self.timeout = timeout
         time.sleep(0.1)
         self.ser.reset_input_buffer()
@@ -190,7 +195,9 @@ def wait_for_reboot(port_hint, timeout=240):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--port")
+    ap.add_argument("--port", help="serial device or pyserial URL (default: auto-detect USB)")
+    ap.add_argument("--linux", action="store_true",
+                    help="talk to a local tracker-linux instance (%s)" % LINUX_PORT_URL)
     ap.add_argument("--no-wait", action="store_true", help="flash: don't wait for the reboot")
     ap.add_argument("cmd", nargs="*")
     a = ap.parse_args()
@@ -198,7 +205,7 @@ def main():
         ap.print_help()
         return 1
 
-    port = find_port(a.port)
+    port = find_port(LINUX_PORT_URL if a.linux else a.port)
     if not port:
         sys.exit("Tracker serial port not found (is it plugged in and powered on?)")
     t = Tracker(port)

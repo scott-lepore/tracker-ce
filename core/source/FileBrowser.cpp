@@ -4,6 +4,7 @@
 #include "util_string.h"
 
 #include <string.h>
+#include "polyassert.h"
 
 void FileBrowser::start(FileSystem* fileSystem, FileBrowserData* fileBrowserData)
 {

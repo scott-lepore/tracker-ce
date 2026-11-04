@@ -33,8 +33,22 @@ OBJS_SORTED := $(sort $(OBJS))
 OBJ_DIRS	:= $(dir $(OBJS_SORTED))
 DEPS		:= $(OBJS_SORTED:.o=.d)
 
+# Host (Linux) build: plain g++, 32-bit by default so that every on-disk
+# struct keeps the same layout as the ARM firmware (pointers, enums, alignment).
+ifeq ($(PLATFORM), LINUX)
+TOOLCHAIN ?=
+M32 ?= 1
+endif
+
 INCLUDES=-I./include -I./config -I./source -I./synth -I./libs -I./libs/Audio -I./libs/ElapsedMillis -I./libs/SerialFlash -I./libs/SPI -I./libs/Audio/utility -I./libs/FT812 -I./libs/fonts -I./libs/NewDisplay -I./interface -I./effector -I./FileManager -I./Exporter -I./AudioEngine -I./libs/Audio/Polyverb -I./AudioEngine/ConstantValues -I./AudioEngine/MasterEnhancer -I${POLYUTIL_DIR}/include -I${POLYUTIL_DIR}/3rdparty -I${POLYSYNTH_DIR}/include  
+ifeq ($(PLATFORM), LINUX)
+COMPILER_OPTIONS=-MMD -MP -fno-common -g -fstack-usage -Wall -Wextra -c -ffunction-sections -fdata-sections -fshort-enums -funsigned-char -pthread -Wno-psabi -includecassert
+ifeq ($(M32), 1)
+COMPILER_OPTIONS+=-m32 -msse2 -mfpmath=sse -malign-double
+endif
+else
 COMPILER_OPTIONS=-MMD -MP -fno-common -g -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -fstack-usage -specs=nano.specs -Wall -Wextra -c -ffunction-sections -fdata-sections -ffreestanding -fno-builtin 
+endif
 ifdef DEBUG
 COMPILER_OPTIONS+=-Og -DDEBUG
 else
@@ -44,7 +58,11 @@ endif
 CPP_OPTIONS=-std=gnu++20 -felide-constructors -includecstdint -fno-rtti -fno-exceptions 
 CC_OPTIONS=
 
+ifeq ($(PLATFORM), LINUX)
+DEFINES+=-DAUDIO_PERFORMANCE_INFO_ENABLED -DMEMORY_USAGE_INFO_ENABLED -DPLATFORM_LINUX
+else
 DEFINES+=-DAUDIO_PERFORMANCE_INFO_ENABLED -DMEMORY_USAGE_INFO_ENABLED -D__NEWLIB__ -DKINETISK -D__MK66FX1M0__ -DF_CPU=180000000 -DUSB_MIDI -DTEENSYDUINO=142 -DARDUINO=10805 -DLAYOUT_US_ENGLISH -DCPU_MK66FX1M0VMD18
+endif
 POLYUTIL_DIR ?= ../util
 POLYSYNTH_DIR ?= ../synth
 -include ../version.mk
@@ -55,6 +73,7 @@ COMPILER_OPTIONS+=-mcpu=cortex-m4 -mfpu=fpv4-sp-d16
 else ifeq ($(PLATFORM), IMX)
 COMPILER_OPTIONS+=-mcpu=cortex-m7 -mfpu=fpv5-sp-d16 -mfp16-format=ieee
 DEFINES+=-DPLATFORM_IMX -DFEATURE_SYNTH
+else ifeq ($(PLATFORM), LINUX)
 else 
 $(error Invalid PLATFORM value $(PLATFORM))
 endif

@@ -100,8 +100,13 @@ static void cleanInvalidateDCache(void* addr, uint32_t size)
 
 void PtfxLoader::syncInstructionCache([[maybe_unused]] void* addr, [[maybe_unused]] uint32_t size)
 {
+#ifdef PLATFORM_LINUX
+    // Host build cannot execute Thumb plug-in code; nothing to sync.
+    return;
+#else
     asm volatile("dsb 0xf" ::: "memory");
     asm volatile("isb 0xf" ::: "memory");
+#endif
 
 #ifdef PLATFORM_IMX
     // Clean and Invalidate D-Cache to Point of Coherency (SDRAM) and invalidate entire I-Cache on Cortex-M7
@@ -123,7 +128,7 @@ void PtfxLoader::syncInstructionCache([[maybe_unused]] void* addr, [[maybe_unuse
     *scb_iciallu = 0; // Invalidate all instruction cache
     asm volatile("dsb 0xf" ::: "memory");
     asm volatile("isb 0xf" ::: "memory");
-#else
+#elif !defined(PLATFORM_LINUX)
     // Disable NXP System MPU on MK66 to allow instruction execution from SRAM/SDRAM
     volatile uint32_t* const mpu_cesr = reinterpret_cast<volatile uint32_t*>(0x4000D000);
     *mpu_cesr = 0;

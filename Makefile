@@ -23,7 +23,7 @@ MINI_POSTFIX     := $(EDITION_NAME)_$(MINI_VER_MAJOR).$(MINI_VER_MINOR).$(MINI_V
 
 .DEFAULT_GOAL := all
 
-.PHONY: all original plus mini ptfx clean version bump-patch bump-minor
+.PHONY: all original plus mini linux ptfx clean version bump-patch bump-minor
 
 all: original plus mini
 
@@ -91,6 +91,26 @@ mini:
 	@cp "$(IMX_DIR)/build-MINI/TrackerMini_$(MINI_POSTFIX).ptf" "$(OUT_DIR)/"
 	@echo "-> Output: $(OUT_DIR)/TrackerMini_$(MINI_POSTFIX).ptf"
 
+# Host build of the Original Tracker firmware (headless, see docs/linux_port.md).
+# M32=1 (default) builds 32-bit for file-format compatibility; needs g++-multilib.
+LINUX_DIR     := $(ROOT_DIR)/platforms/linux
+M32           ?= 1
+linux:
+	@echo "=================================================================="
+	@echo " Building Linux host port (Original Tracker core) - $(EDITION_NAME) ($(BUILD_TAG)) M32=$(M32)"
+	@echo "=================================================================="
+	$(MAKE) -C "$(CORE_DIR)" -j$(NPROC) build \
+		TOOLCHAIN="" \
+		PLATFORM=LINUX PRODUCT=ORIGINAL M32=$(M32) \
+		POLYUTIL_DIR="$(UTIL_DIR)" \
+		POLYSYNTH_DIR="$(SYNTH_DIR)"
+	$(MAKE) -C "$(LINUX_DIR)" -j$(NPROC) build \
+		TRACKER_DIR="$(CORE_DIR)" M32=$(M32) \
+		BUILD_ID_STR="$(BUILD_ID_STR)"
+	@mkdir -p "$(OUT_DIR)"
+	@cp "$(LINUX_DIR)/build/tracker-linux" "$(OUT_DIR)/"
+	@echo "-> Output: $(OUT_DIR)/tracker-linux"
+
 ptfx:
 	@mkdir -p "$(ROOT_DIR)/editor-fx-sdk/build/Effects"
 	@for src in "$(ROOT_DIR)"/editor-fx-sdk/effects/*.c; do \
@@ -99,6 +119,8 @@ ptfx:
 	done
 
 clean:
+	$(MAKE) -C "$(CORE_DIR)" clean PLATFORM=LINUX PRODUCT=ORIGINAL
+	$(MAKE) -C "$(LINUX_DIR)" clean
 	$(MAKE) -C "$(CORE_DIR)" clean PLATFORM=MK66 PRODUCT=ORIGINAL
 	$(MAKE) -C "$(CORE_DIR)" clean PLATFORM=IMX PRODUCT=PLUS
 	$(MAKE) -C "$(CORE_DIR)" clean PLATFORM=IMX PRODUCT=MINI
