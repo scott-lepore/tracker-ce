@@ -16,7 +16,7 @@ BUILD_DIR   := build
 OBJ_DIR     := $(BUILD_DIR)/obj
 RM          := rm -rf
 
-CPP_SRCS    := $(wildcard source/*.cpp)
+CPP_SRCS    := $(wildcard source/*.cpp) $(wildcard source/eve/*.cpp)
 OBJS        := $(patsubst source/%.cpp,$(OBJ_DIR)/%.o,$(CPP_SRCS))
 DEPS        := $(OBJS:.o=.d)
 
@@ -51,8 +51,19 @@ endif
 LIBS        += $(ALSA_LIB)
 endif
 
+# X11 window for the emulated display (same trick: link the runtime .so.6)
+ifneq ($(wildcard /usr/include/X11/Xlib.h),)
+DEFINES     += -DHAVE_X11
+ifeq ($(M32), 1)
+X11_LIB     := $(firstword $(wildcard /usr/lib/i386-linux-gnu/libX11.so /usr/lib/i386-linux-gnu/libX11.so.6))
+else
+X11_LIB     := -lX11
+endif
+LIBS        += $(X11_LIB)
+endif
+
 $(OBJ_DIR)/%.o: source/%.cpp
-	@mkdir -p $(OBJ_DIR)
+	@mkdir -p $(dir $@)
 	$(CXX) $(DEFINES) $(INCLUDES) $(CXXFLAGS) -c -o "$@" "$<"
 
 $(BUILD_DIR)/$(TARGET): $(OBJS) $(TRACKER_DIR)/build-LINUX-ORIGINAL/libTracker.a

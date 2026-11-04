@@ -24,6 +24,8 @@ struct DevMonitorHooks
     // action: 0 = release, 1 = press, 2 = hold
     void (*button)(uint8_t idx, uint8_t action) = nullptr;
     void (*pad)(uint8_t idx, uint8_t action) = nullptr;
+    // Host builds: save the current screen to a file. nullptr = unsupported.
+    bool (*screenshot)(const char* path) = nullptr;
 };
 
 void devMonitorInit(DevSerialPort* port, Platform* platform, const DevMonitorHooks& hooks);

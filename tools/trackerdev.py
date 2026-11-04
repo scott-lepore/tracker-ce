@@ -17,7 +17,8 @@ Usage examples:
   trackerdev.py shell
 
 Needs pyserial. Port auto-detected by USB id 16d0:0e9f; override with --port or $TRACKER_PORT.
-Use --linux (or --port socket://127.0.0.1:9170) to drive the headless Linux build instead.
+Use --linux (or --port socket://127.0.0.1:9170) to drive the Linux build instead;
+`shot out.png` saves its emulated screen.
 """
 import argparse
 import os
@@ -100,6 +101,33 @@ class Tracker:
 
     def ok(self, lines):
         return bool(lines) and lines[-1] == "ok"
+
+    def get(self, remote, local):
+        self.ser.write(f"get {remote}\n".encode())
+        first = self.readline(timeout=10)
+        if not first or not first.startswith("data "):
+            print(first or "err timeout")
+            return False
+        size = int(first.split()[1])
+        data = b""
+        t0 = time.monotonic()
+        while len(data) < size:
+            chunk = self.ser.read(min(65536, size - len(data)))
+            if chunk:
+                data += chunk
+                el = time.monotonic() - t0
+                print(f"\r  {len(data)}/{size} bytes  {len(data)/el/1024 if el else 0:6.0f} KB/s", end="", flush=True)
+            elif time.monotonic() - t0 > 120:
+                print("\nerr timeout")
+                return False
+        print()
+        # trailing ok/err line
+        l = self.readline(timeout=5)
+        if l != "ok":
+            print(l)
+            return False
+        open(local, "wb").write(data)
+        return True
 
     def put(self, local, remote):
         data = open(local, "rb").read()
@@ -232,6 +260,11 @@ def main():
             if len(args) != 2:
                 sys.exit("usage: put <local> <remote path>")
             return 0 if t.put(args[0], args[1]) else 1
+        elif c == "get":
+            if len(args) not in (1, 2):
+                sys.exit("usage: get <remote path> [local]")
+            local = args[1] if len(args) == 2 else os.path.basename(args[0])
+            return 0 if t.get(args[0], local) else 1
         elif c == "flash":
             if len(args) != 1:
                 sys.exit("usage: flash <file.ptf>")
@@ -247,6 +280,24 @@ def main():
             if not a.no_wait:
                 wait_for_reboot(port)
             return 0
+        elif c == "shot":
+            # Linux build only: dump the emulated panel (PPM, converted to PNG when PIL is available)
+            out = args[0] if args else "tracker-screen.png"
+            ppm = out[:-4] + ".ppm" if out.lower().endswith(".png") else out
+            lines = t.cmd(f"shot {os.path.abspath(ppm)}", echo=False)
+            if not t.ok(lines):
+                print("\n".join(lines))
+                return 1
+            if out.lower().endswith(".png"):
+                try:
+                    from PIL import Image
+                    Image.open(ppm).save(out)
+                    os.remove(ppm)
+                    print(out)
+                except ImportError:
+                    print(ppm, "(install pillow for PNG)")
+            else:
+                print(ppm)
         elif c == "run":
             run_script(t, " ".join(args))
         elif c == "shell":

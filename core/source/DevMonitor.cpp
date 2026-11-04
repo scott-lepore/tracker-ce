@@ -247,6 +247,24 @@ void cmdMon(int argc, char** argv)
     ok();
 }
 
+void cmdShot(int argc, char** argv)
+{
+    if (argc < 2)
+    {
+        err("usage: shot <path>");
+        return;
+    }
+    if (hooks.screenshot == nullptr)
+    {
+        err("screenshot unsupported on this platform (use Shift+power on the device)");
+        return;
+    }
+    if (hooks.screenshot(argv[1]))
+        ok();
+    else
+        err("write failed");
+}
+
 void cmdExists(int argc, char** argv)
 {
     if (argc < 2)
@@ -290,6 +308,49 @@ void abortUpload(const char* why)
     fs->remove(upload.path);
     upload.active = false;
     err(why);
+}
+
+// get <path>: reply "data <size>" then the raw bytes, then ok. Streams from
+// the main loop in one go, so the UI pauses for the duration (a 1.5 MB
+// screenshot takes a few seconds over USB).
+void cmdGet(int argc, char** argv)
+{
+    if (argc < 2)
+    {
+        err("usage: get <path>");
+        return;
+    }
+    FileSystem* fs = platform->getFileSystem();
+    if (!fs->exists(argv[1]))
+    {
+        err("no such file");
+        return;
+    }
+    auto [isOpen, fh] = fs->openFile(argv[1], FileSystem::FileOpenMode::kRead);
+    if (!isOpen)
+    {
+        err("open failed");
+        return;
+    }
+    uint32_t size = (uint32_t)fs->getFileSize(fh);
+    sendf("data %u\n", (unsigned)size);
+    static uint8_t buf[2048];
+    uint32_t left = size;
+    while (left > 0)
+    {
+        size_t n = fs->readFile(buf, left < sizeof(buf) ? left : sizeof(buf), fh);
+        if (n == 0)
+            break;
+        size_t off = 0;
+        while (off < n)
+            off += port->write(buf + off, n - off);
+        left -= (uint32_t)n;
+    }
+    fs->closeFile(fh);
+    if (left == 0)
+        ok();
+    else
+        err("short read");
 }
 
 void cmdPut(int argc, char** argv)
@@ -453,8 +514,8 @@ void cmdCfg(int argc, char** argv)
 void cmdHelp()
 {
     send("commands: ping stat mon <ms> tracks midi <ch> <note> <vel> [j] key <idx> <p|r|h> "
-         "pad <0-47> <p|r|h> jog <delta> exists <path> rm <path> put <path> <size> "
-         "flash <file> cfg notesin|trackch|save reboot help\n");
+         "pad <0-47> <p|r|h> jog <delta> exists <path> rm <path> put <path> <size> get <path> "
+         "flash <file> cfg notesin|trackch|save shot <path> reboot help\n");
     ok();
 }
 
@@ -481,8 +542,10 @@ void execute(char* text)
     else if (!strcmp(c, "jog")) cmdJog(argc, argv);
     else if (!strcmp(c, "mon")) cmdMon(argc, argv);
     else if (!strcmp(c, "exists")) cmdExists(argc, argv);
+    else if (!strcmp(c, "shot")) cmdShot(argc, argv);
     else if (!strcmp(c, "rm")) cmdRm(argc, argv);
     else if (!strcmp(c, "put")) cmdPut(argc, argv);
+    else if (!strcmp(c, "get")) cmdGet(argc, argv);
     else if (!strcmp(c, "flash")) cmdFlash(argc, argv);
     else if (!strcmp(c, "reboot")) cmdReboot();
     else if (!strcmp(c, "help")) cmdHelp();

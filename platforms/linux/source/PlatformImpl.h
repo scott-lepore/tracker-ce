@@ -3,7 +3,7 @@
 #include "ConfigManagerImpl.h"
 #include "FileSystemImpl.h"
 #include "MidiImpl.h"
-#include "NullDisplayDriver.h"
+#include "EveDisplayDriver.h"
 #include "Platform.h"
 #include "Stubs.h"
 #include "SwitchGroupImpl.h"
@@ -53,7 +53,7 @@ class PlatformImpl final : public Platform
     TimerImpl timer;
     FileSystemImpl fileSystem;
     ConfigManagerImpl configManager;
-    NullDisplayDriver display;
+    EveDisplayDriver display;
     UsbMidiImpl usbMidi;
     UartMidiImpl uartMidi;
     Sgtl5000Impl codec;

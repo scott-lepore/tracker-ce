@@ -1,12 +1,12 @@
 # Linux host port (headless)
 
 `platforms/linux` builds the Original Tracker firmware core as a native Linux
-program. Stages 1 and 2 are done: the complete application (sequencer, audio
-engine, file manager, UI state machine, config) runs against a directory that
-stands in for the SD card, plays through ALSA/PipeWire, exposes its two MIDI
-ports on the ALSA sequencer, and is driven over the same developer monitor
-protocol as the hardware (`docs/dev_serial_monitor.md`), on TCP instead of
-USB serial. There is no screen yet (stage 3).
+program: the complete application (sequencer, audio engine, file manager, UI,
+config) runs against a directory that stands in for the SD card, plays through
+ALSA/PipeWire, exposes its two MIDI ports on the ALSA sequencer, shows the
+800x480 panel in a window through a software FT812, takes keyboard input, and
+is driven over the same developer monitor protocol as the hardware
+(`docs/dev_serial_monitor.md`), on TCP instead of USB serial.
 
 Purpose: regression-test core changes without flashing, script scenarios
 (load project, play, inject MIDI, read back track state) and diff the results
@@ -39,6 +39,25 @@ ports "USB MIDI" and "MIDI Jack"; connect a controller or a DAW with
 `~/.local/share/tracker-linux`), `--no-pacing` (with `--audio none`: audio
 engine runs as fast as the CPU allows; for tests), `--quit-after SEC`.
 
+`--display x11|none` (default x11 when `$DISPLAY` is set) opens the panel
+window; `--scale 2` doubles it. With `--display none` the screen is still
+rendered, so `trackerdev.py --linux shot out.png` works headless.
+
+### Keyboard
+
+| Keys | Tracker control |
+|---|---|
+| `1`..`=`, `q`..`]`, `a`..`\`, `z`..`/` | the 48 pads, four rows of 12, top row first (bottom row has 10 keys plus `<` on ISO layouts) |
+| F1..F8 | the eight screen buttons under the display |
+| Space / Enter / Shift | Play / Rec / Shift |
+| arrows, Insert, Delete or Backspace, Home | arrows, Insert, Delete, Copy |
+| Ctrl+P E F G M | Params, Perform, File, Config, Master |
+| Ctrl+L Y D R | Sample Loader, Sample Playback, Sample Editor, Sample Recorder |
+| Ctrl+S N I V X T | Song, Note, Instrument, Vol/FX2, FX/FX1, Pattern |
+| mouse wheel, PageUp/PageDown | jog wheel |
+
+Holding a key repeats like holding the physical button (same hold timing).
+
 `--capture FILE` additionally writes what the sink receives as raw s16le
 stereo at 44118 Hz (`sox -r 44118 -e signed -b 16 -c 2 FILE out.wav` to
 convert), with `--audio none` as a silent, clock-paced renderer for tests.
@@ -66,12 +85,12 @@ Then from another terminal:
 | Audio DMA interrupts | `AudioThread`: one thread calling the core every 128 samples; paced by blocking ALSA writes (`AlsaSink`), or by the steady clock with `--audio none` |
 | `CPSID i` critical sections | recursive mutex shared with the audio thread (`linuxIrqLock`) |
 | `NVIC_DisableIRQ(audio)` | flag + wait for the in-flight block |
-| FT812 display | `NullDisplayDriver`: swallows command lists, co-processor always idle |
+| FT812 display | `eve/EveEmu`: RAM_G, RAM_DL, co-processor FIFO; expands CMD_TEXT/NUMBER/GRADIENT/APPEND/MEMCPY/SETFONT2/SETBITMAP/matrix commands into display-list words like the chip, then rasterizes RECTS/LINES/LINE_STRIP/POINTS/BITMAPS (all bitmap formats, transforms, scissor, blend) with coverage anti-aliasing. `CMD_LOADIMAGE` (JPEG/PNG from the card) is skipped. Firmware fonts are the chip's own L4 blocks, so text is pixel-exact |
 | TCA8418 key matrix / pads | `SwitchGroupImpl`: same hold-repeat timing, fed by `key`/`pad` dev commands |
 | SD card (FatFs) | `FileSystemImpl`: POSIX over a directory; listings sorted case-insensitively; "hidden" = dot-files and `System Volume Information` |
 | FatFs fast-seek + raw sector DMA (sample streaming) | fake contiguous cluster chain per open file; `readSectorsAsync` is a synchronous `pread` |
 | EEPROM | 4 KiB `eeprom.bin` |
-| USB serial dev monitor | TCP 127.0.0.1:9170 |
+| USB serial dev monitor | TCP 127.0.0.1:9170, plus `shot <path>` to dump the panel |
 | USB MIDI and DIN jack | `AlsaSeq`: ALSA sequencer client with one duplex port per device port; note-on velocity 0 delivered as note-off like the device libraries |
 | Radio, battery, LEDs, codec, USB audio | stubs (codec master volume is applied in the sink) |
 | Cortex-M4 DSP intrinsics | `core/libs/Audio/utility/dspinst_portable.h`, bit-exact C |
@@ -91,6 +110,15 @@ Core changes are all under `#ifdef PLATFORM_LINUX` (`core/config/config.h`,
 - Float contraction (FMA) decisions differ between compilers, so float DSP
   paths may differ in the last bit from the device. Fixed-point paths are exact.
 
+## Fidelity
+
+Font glyphs and layout come straight from the firmware. Anti-aliasing,
+rounded rectangle corners (radius = line width) and line widths follow the
+FT81x rules as documented; compare against a real screenshot when in doubt:
+on the device hold Shift and tap the power button, the firmware writes
+`Snapshots/Snapshot_NNN.bmp` to the card, and `trackerdev.py get
+/Snapshots/Snapshot_001.bmp` fetches it over USB.
+
 ## Known quirk
 
 Keys sent during the first ~3 s after start are swallowed by the boot
@@ -100,4 +128,5 @@ sequence (same as on the hardware); wait before scripting input.
 
 1. headless core + scripted control: done
 2. ALSA audio output and sequencer MIDI: done (no audio input yet)
-3. FT812 display-list renderer and keyboard/MIDI-controller input mapping
+3. FT812 renderer, window and keyboard: done. Open: image loading
+   (`CMD_LOADIMAGE`), audio input, MIDI-controller to pad mapping

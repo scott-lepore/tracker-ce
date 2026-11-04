@@ -13,6 +13,7 @@
 #include "PlatformGlue.h"
 #include "PlatformImpl.h"
 #include "Tracker.h"
+#include "X11Window.h"
 #include <csignal>
 #include <cstdio>
 #include <cstdlib>
@@ -20,6 +21,9 @@
 #include <string>
 #include <sys/stat.h>
 #include <unistd.h>
+
+// Core-side encoder handler (core/source/mtActions.cpp)
+void onPotChange(uint8_t n, int16_t value);
 
 namespace
 {
@@ -29,6 +33,7 @@ DevTcpPort g_devPort;
 AudioThread g_audio;
 AlsaSink g_sink;
 AlsaSeq g_seq;
+X11Window g_window;
 volatile sig_atomic_t g_stop = 0;
 
 void onSignal(int)
@@ -44,6 +49,11 @@ void devButtonHook(uint8_t idx, uint8_t action)
 void devPadHook(uint8_t idx, uint8_t action)
 {
     g_platform.pads.simulateKey(idx, action);
+}
+
+bool devScreenshotHook(const char* path)
+{
+    return g_platform.display.emu.savePPM(path);
 }
 
 FILE* g_capture = nullptr; // --capture: raw s16le stereo of what the sink receives
@@ -104,6 +114,8 @@ void usage()
             "  --audio none       discard audio, pace by the clock\n"
             "  --latency MS       ALSA buffer length (default 20)\n"
             "  --capture FILE     also write the output as raw s16le stereo 44118 Hz\n"
+            "  --display x11|none show the emulated 800x480 panel in a window (default x11 if $DISPLAY)\n"
+            "  --scale N          window scale 1..4 (default 1)\n"
             "  --midi alsa|none   ALSA sequencer ports 'USB MIDI' and 'MIDI Jack' (default alsa)\n"
             "  --sd DIR        directory mirroring the SD card (Projects/, Samples/, ...)\n"
             "  --port N        dev monitor TCP port on 127.0.0.1 (default %d)\n"
@@ -124,6 +136,8 @@ int main(int argc, char** argv)
     std::string midi = "alsa";
     int latencyMs = 20;
     std::string capture;
+    std::string displayMode = getenv("DISPLAY") ? "x11" : "none";
+    int scale = 1;
     const char* home = getenv("HOME");
     opt.stateDir = std::string(home ? home : ".") + "/.local/share/tracker-linux";
 
@@ -145,6 +159,8 @@ int main(int argc, char** argv)
         else if (!strcmp(argv[i], "--midi")) midi = next("--midi");
         else if (!strcmp(argv[i], "--latency")) latencyMs = atoi(next("--latency"));
         else if (!strcmp(argv[i], "--capture")) capture = next("--capture");
+        else if (!strcmp(argv[i], "--display")) displayMode = next("--display");
+        else if (!strcmp(argv[i], "--scale")) scale = atoi(next("--scale"));
         else if (!strcmp(argv[i], "--quit-after")) quitAfter = atof(next("--quit-after"));
         else
         {
@@ -232,7 +248,14 @@ int main(int argc, char** argv)
     DevMonitorHooks hooks;
     hooks.button = devButtonHook;
     hooks.pad = devPadHook;
+    hooks.screenshot = devScreenshotHook;
     devMonitorInit(&g_devPort, &g_platform, hooks);
+
+    if (displayMode == "x11" && !g_window.open(scale))
+        fprintf(stderr, "display: continuing without a window (use shot for screenshots)\n");
+    auto keyButton = [](uint8_t idx, bool press) { g_platform.buttons.simulateKey(idx, press ? 1 : 0); };
+    auto keyPad = [](uint8_t idx, bool press) { g_platform.pads.simulateKey(idx, press ? 1 : 0); };
+    auto jog = [](int delta) { onPotChange(0, (int16_t)delta); };
 
     fprintf(stderr, "tracker-linux: core %s build %s, sd=%s, dev port 127.0.0.1:%d\n",
             Tracker::getVersion(), g_platform.getSystemInfo()->buildId, opt.sdRoot.c_str(), port);
@@ -243,13 +266,23 @@ int main(int argc, char** argv)
         g_platform.update();
         g_tracker->update();
         devMonitorUpdate();
+        if (g_window.isOpen())
+        {
+            g_window.present(g_platform.display.emu.frontBuffer(), g_platform.display.emu.frameCounter());
+            if (!g_window.poll(keyButton, keyPad, jog))
+                break;
+        }
         if (quitAfter > 0 && (linuxNowMs() - t0) > (uint32_t)(quitAfter * 1000))
             break;
         usleep(500);
     }
 
-    fprintf(stderr, "tracker-linux: stopping (%llu audio blocks, %u late, %u underruns)\n",
-            (unsigned long long)g_audio.blocksRendered(), g_audio.lateBlocks(), g_sink.underruns());
+    fprintf(stderr, "tracker-linux: stopping (%llu audio blocks, %u late, %u underruns, %u frames, "
+            "unsupported dl=%u cmd=%u last=0x%08x)\n",
+            (unsigned long long)g_audio.blocksRendered(), g_audio.lateBlocks(), g_sink.underruns(),
+            g_platform.display.emu.frameCounter(), g_platform.display.emu.unsupportedDl,
+            g_platform.display.emu.unsupportedCmd, g_platform.display.emu.lastUnsupported);
+    g_window.close();
     g_audio.stop();
     g_sink.close();
     g_seq.close();
