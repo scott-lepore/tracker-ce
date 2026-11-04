@@ -1,4 +1,5 @@
 #include "AudioThread.h"
+#include "AlsaSource.h"
 #include "PlatformGlue.h"
 #include "Tracker.h"
 #include <chrono>
@@ -6,9 +7,10 @@
 #include <pthread.h>
 #include <sched.h>
 
-void AudioThread::start(Tracker* t, BlockSink s, void* user, bool realtimePacing)
+void AudioThread::start(Tracker* t, BlockSink s, void* user, bool realtimePacing, AlsaSource* in)
 {
     tracker = t;
+    source = in;
     sink = s;
     sinkUser = user;
     pacing = realtimePacing;
@@ -40,6 +42,8 @@ void AudioThread::run()
     {
         if (linuxAudioInterruptEnabled())
         {
+            if (source)
+                source->read(input, kAudioBlockSamples);
             linuxAudioCallbackBegin();
             tracker->updateInputAudioBuffers(input, nullptr, kAudioBlockSamples);
             tracker->updateAudioBuffers(left, right, kAudioBlockSamples);

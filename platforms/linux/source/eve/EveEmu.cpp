@@ -1,4 +1,5 @@
 #include "EveEmu.h"
+#include "EveImage.h"
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -189,12 +190,31 @@ bool EveEmu::runCommand(size_t& pos)
 
     if (imageDataMode)
     {
-        // Raw JPEG/PNG bytes follow CMD_LOADIMAGE; the real chip parses the
-        // image to find its end. We cannot decode it, so skip to GETPROPS.
+        // Raw JPEG/PNG bytes follow CMD_LOADIMAGE. The chip parses the stream
+        // to find its end; we collect until the firmware's CMD_GETPROPS (its
+        // next command) and decode the whole buffer then. A JPEG cannot
+        // contain FF FF FF 25, so the sentinel is safe.
         if (cmd == CMD_GETPROPS)
+        {
             imageDataMode = false;
+            std::vector<uint8_t> px;
+            int w = 0, h = 0;
+            if (eveDecodeImage(imageData.data(), imageData.size(), px, w, h))
+            {
+                memWrite(propsAddr, px.data(), (uint32_t)px.size());
+                propsW = (uint32_t)w;
+                propsH = (uint32_t)h;
+            }
+            else
+            {
+                unsupportedCmd++;
+                lastUnsupported = CMD_LOADIMAGE;
+            }
+            imageData.clear();
+        }
         else
         {
+            imageData.insert(imageData.end(), &fifo[pos], &fifo[pos + 4]);
             pos += 4;
             return true;
         }
@@ -293,8 +313,7 @@ bool EveEmu::runCommand(size_t& pos)
                 propsAddr = word(1);
                 propsW = propsH = 0;
                 imageDataMode = true;
-                unsupportedCmd++;
-                lastUnsupported = cmd;
+                imageData.clear();
             }
             pos += 12;
             return true;

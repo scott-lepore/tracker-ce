@@ -15,7 +15,8 @@ class AlsaSeq
     {
         kUsb = 0,
         kJack = 1,
-        kPorts = 2
+        kPads = 2, // controller notes -> Tracker grid pads (host only)
+        kPorts = 3
     };
     struct Event
     {
@@ -44,7 +45,7 @@ class AlsaSeq
     void pump();
     void send(Port port, void* ev); // snd_seq_event_t*
     void* seq = nullptr;            // snd_seq_t*
-    int portId[kPorts] = { -1, -1 };
+    int portId[kPorts] = { -1, -1, -1 };
     std::deque<Event> queue[kPorts];
     std::mutex mtx;
 };

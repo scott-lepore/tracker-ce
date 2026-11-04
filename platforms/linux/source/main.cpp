@@ -6,6 +6,7 @@
 
 #include "AlsaSeq.h"
 #include "AlsaSink.h"
+#include "AlsaSource.h"
 #include "AudioThread.h"
 #include "DevMonitor.h"
 #include "DevTcpPort.h"
@@ -32,7 +33,27 @@ Tracker* g_tracker = nullptr;
 DevTcpPort g_devPort;
 AudioThread g_audio;
 AlsaSink g_sink;
+AlsaSource g_source;
 AlsaSeq g_seq;
+int g_padsBase = 36;
+
+// "Pads" sequencer port: note N -> grid pad N - base (0..47, bottom row =
+// lowest octave). Runs on the main thread like the keyboard.
+void pollPadController()
+{
+    AlsaSeq::Event e;
+    while (g_seq.pop(AlsaSeq::kPads, e))
+    {
+        if (e.type != 6 /* NOTEON */ && e.type != 7 /* NOTEOFF */)
+            continue;
+        int idx = (int)e.a - g_padsBase;
+        if (idx < 0 || idx >= 48)
+            continue;
+        int row = 3 - idx / 12, col = idx % 12; // lowest notes on the bottom row
+        bool press = e.type == 6 && e.b > 0;
+        g_platform.pads.simulateKey((uint8_t)(row * 12 + col), press ? 1 : 0);
+    }
+}
 X11Window g_window;
 volatile sig_atomic_t g_stop = 0;
 
@@ -116,7 +137,9 @@ void usage()
             "  --capture FILE     also write the output as raw s16le stereo 44118 Hz\n"
             "  --display x11|none show the emulated 800x480 panel in a window (default x11 if $DISPLAY)\n"
             "  --scale N          window scale 1..4 (default 1)\n"
-            "  --midi alsa|none   ALSA sequencer ports 'USB MIDI' and 'MIDI Jack' (default alsa)\n"
+            "  --midi alsa|none   ALSA sequencer ports 'USB MIDI', 'MIDI Jack', 'Pads' (default alsa)\n"
+            "  --audio-in alsa[:DEV]|none  capture for the Sample Recorder / input (default none)\n"
+            "  --pads-base N      MIDI note mapped to pad 1 on the 'Pads' port (default 36)\n"
             "  --sd DIR        directory mirroring the SD card (Projects/, Samples/, ...)\n"
             "  --port N        dev monitor TCP port on 127.0.0.1 (default %d)\n"
             "  --state DIR     where eeprom.bin lives (default ~/.local/share/tracker-linux)\n"
@@ -134,6 +157,7 @@ int main(int argc, char** argv)
     double quitAfter = 0;
     std::string audio = "alsa";
     std::string midi = "alsa";
+    std::string audioIn = "none";
     int latencyMs = 20;
     std::string capture;
     std::string displayMode = getenv("DISPLAY") ? "x11" : "none";
@@ -157,6 +181,8 @@ int main(int argc, char** argv)
         else if (!strcmp(argv[i], "--no-pacing")) pacing = false;
         else if (!strcmp(argv[i], "--audio")) audio = next("--audio");
         else if (!strcmp(argv[i], "--midi")) midi = next("--midi");
+        else if (!strcmp(argv[i], "--audio-in")) audioIn = next("--audio-in");
+        else if (!strcmp(argv[i], "--pads-base")) g_padsBase = atoi(next("--pads-base"));
         else if (!strcmp(argv[i], "--latency")) latencyMs = atoi(next("--latency"));
         else if (!strcmp(argv[i], "--capture")) capture = next("--capture");
         else if (!strcmp(argv[i], "--display")) displayMode = next("--display");
@@ -232,6 +258,21 @@ int main(int argc, char** argv)
             fprintf(stderr, "audio: no ALSA device could be opened, output is silent\n");
         }
     }
+    AlsaSource* source = nullptr;
+    if (audioIn.rfind("alsa", 0) == 0)
+    {
+        std::string dev = audioIn.size() > 5 && audioIn[4] == ':' ? audioIn.substr(5) : "";
+        const char* chain[] = { "default", "pulse", "plughw:0,0" };
+        bool opened = false;
+        if (!dev.empty())
+            opened = g_source.open(dev, 50, 44118);
+        else
+            for (const char* d : chain)
+                if ((opened = g_source.open(d, 50, 44118)))
+                    break;
+        if (opened)
+            source = &g_source;
+    }
     if (midi == "alsa" && g_seq.open("Tracker CE"))
     {
         g_platform.usbMidi.setSeq(&g_seq);
@@ -242,7 +283,7 @@ int main(int argc, char** argv)
     void (*startDisplay)(Platform*) = g_tracker->getStartDisplayFunc();
     if (startDisplay)
         startDisplay(&g_platform);
-    g_audio.start(g_tracker, sink, nullptr, pacing);
+    g_audio.start(g_tracker, sink, nullptr, pacing, source);
     g_tracker->init(&g_platform);
 
     DevMonitorHooks hooks;
@@ -266,6 +307,8 @@ int main(int argc, char** argv)
         g_platform.update();
         g_tracker->update();
         devMonitorUpdate();
+        if (g_seq.isOpen())
+            pollPadController();
         if (g_window.isOpen())
         {
             g_window.present(g_platform.display.emu.frontBuffer(), g_platform.display.emu.frameCounter());
@@ -297,6 +340,7 @@ int main(int argc, char** argv)
     g_window.close();
     g_audio.stop();
     g_sink.close();
+    g_source.close();
     g_seq.close();
     if (g_capture)
         fclose(g_capture);

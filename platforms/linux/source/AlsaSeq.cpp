@@ -14,7 +14,7 @@ bool AlsaSeq::open(const char* clientName)
         return false;
     }
     snd_seq_set_client_name(h, clientName);
-    const char* names[kPorts] = { "USB MIDI", "MIDI Jack" };
+    const char* names[kPorts] = { "USB MIDI", "MIDI Jack", "Pads" };
     unsigned caps = SND_SEQ_PORT_CAP_READ | SND_SEQ_PORT_CAP_SUBS_READ | SND_SEQ_PORT_CAP_WRITE |
                     SND_SEQ_PORT_CAP_SUBS_WRITE;
     unsigned type = SND_SEQ_PORT_TYPE_MIDI_GENERIC | SND_SEQ_PORT_TYPE_APPLICATION |

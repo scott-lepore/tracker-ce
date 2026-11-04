@@ -35,6 +35,12 @@ extern const uint16_t sqrt_integer_guess_table[];
 inline uint32_t sqrt_uint32(uint32_t in) __attribute__((always_inline, unused));
 inline uint32_t sqrt_uint32(uint32_t in)
 {
+#ifdef PLATFORM_LINUX
+    // Cortex-M: clz(0) == 32 and x/0 == 0, so the iteration below yields 0.
+    // x86 traps on the division; return the same result explicitly.
+    if (in == 0)
+        return 0;
+#endif
     uint32_t n = sqrt_integer_guess_table[__builtin_clz(in)];
     n = ((in / n) + n) / 2;
     n = ((in / n) + n) / 2;
@@ -45,6 +51,10 @@ inline uint32_t sqrt_uint32(uint32_t in)
 inline uint32_t sqrt_uint32_approx(uint32_t in) __attribute__((always_inline, unused));
 inline uint32_t sqrt_uint32_approx(uint32_t in)
 {
+#ifdef PLATFORM_LINUX
+    if (in == 0)
+        return 0;
+#endif
     uint32_t n = sqrt_integer_guess_table[__builtin_clz(in)];
     n = ((in / n) + n) / 2;
     n = ((in / n) + n) / 2;

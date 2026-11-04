@@ -12,6 +12,7 @@
 #include "mtSequencer.h"
 #include "mtStructs.h"
 #include "mtConfig.h"
+#include "NewDisplay/display.h"
 
 #include <cstdarg>
 #include <cstdio>
@@ -551,11 +552,47 @@ void cmdEeprom(int argc, char** argv)
     ok();
 }
 
+// snap: run the firmware's own screenshot (Shift+power) -> Snapshots/Snapshot_NNN.bmp
+void cmdSnap()
+{
+    display.scheduleScreenShot(0);
+    ok();
+}
+
+bool eventsEnabled = false;
+bool controllerMode = false;
+
+void cmdEvents(int argc, char** argv)
+{
+    if (argc < 2)
+    {
+        err("usage: events <0|1>");
+        return;
+    }
+    eventsEnabled = atoi(argv[1]) != 0;
+    if (!eventsEnabled)
+        controllerMode = false;
+    ok();
+}
+
+void cmdController(int argc, char** argv)
+{
+    if (argc < 2)
+    {
+        err("usage: controller <0|1>");
+        return;
+    }
+    controllerMode = atoi(argv[1]) != 0;
+    if (controllerMode)
+        eventsEnabled = true;
+    ok();
+}
+
 void cmdHelp()
 {
     send("commands: ping stat mon <ms> tracks midi <ch> <note> <vel> [j] key <idx> <p|r|h> "
          "pad <0-47> <p|r|h> jog <delta> exists <path> rm <path> put <path> <size> get <path> "
-         "flash <file> cfg notesin|trackch|save shot <path> eeprom <off> <len> reboot help\n");
+         "flash <file> cfg notesin|trackch|save shot <path> eeprom <off> <len> snap events <0|1> controller <0|1> reboot help\n");
     ok();
 }
 
@@ -584,6 +621,9 @@ void execute(char* text)
     else if (!strcmp(c, "exists")) cmdExists(argc, argv);
     else if (!strcmp(c, "shot")) cmdShot(argc, argv);
     else if (!strcmp(c, "eeprom")) cmdEeprom(argc, argv);
+    else if (!strcmp(c, "snap")) cmdSnap();
+    else if (!strcmp(c, "events")) cmdEvents(argc, argv);
+    else if (!strcmp(c, "controller")) cmdController(argc, argv);
     else if (!strcmp(c, "rm")) cmdRm(argc, argv);
     else if (!strcmp(c, "put")) cmdPut(argc, argv);
     else if (!strcmp(c, "get")) cmdGet(argc, argv);
@@ -643,4 +683,29 @@ void devMonitorUpdate()
         monLastMs = nowMs();
         sendStat("mon");
     }
+}
+
+bool devMonitorInputEvent(char kind, uint8_t idx, int16_t value)
+{
+    if (!eventsEnabled || port == nullptr)
+        return false;
+    if (!port->connected())
+    {
+        // host went away: never leave the device deaf
+        controllerMode = false;
+        eventsEnabled = false;
+        return false;
+    }
+    sendf("ev %c %d %d\n", kind, idx, value);
+    return controllerMode;
+}
+
+bool devMonitorControllerMode()
+{
+    if (controllerMode && (port == nullptr || !port->connected()))
+    {
+        controllerMode = false;
+        eventsEnabled = false;
+    }
+    return controllerMode;
 }

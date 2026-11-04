@@ -39,6 +39,24 @@ ports "USB MIDI" and "MIDI Jack"; connect a controller or a DAW with
 `~/.local/share/tracker-linux`), `--no-pacing` (with `--audio none`: audio
 engine runs as fast as the CPU allows; for tests), `--quit-after SEC`.
 
+`--audio-in alsa[:DEV]|none` (default none) captures from ALSA/PipeWire so
+the Sample Recorder and input monitoring work; latency 50 ms.
+
+### Using the Tracker itself as the controller
+
+With the Tracker on USB and `tracker-linux` running:
+
+    tools/trackerdev.py bridge
+
+puts the device in *controller mode*: its pads, buttons and jog wheel stop
+acting locally and are streamed to the port instead (`controller 1` and the
+`ev` lines in `docs/dev_serial_monitor.md`). Holds are regenerated on the
+port with the device's timing. `bridge mirror` keeps the Tracker working
+normally while forwarding. Ctrl-C restores the device; it also restores itself
+if the USB connection drops. A MIDI controller can drive the pads too, through
+the ALSA sequencer port "Tracker CE: Pads" (note `--pads-base`, default 36, is
+pad 1 on the bottom row).
+
 `--display x11|none` (default x11 when `$DISPLAY` is set) opens the panel
 window; `--scale 2` starts it doubled. The window is resizable: the 800x480
 frame is scaled to fit (the UI is bitmap text on a fixed pixel grid, not
@@ -87,13 +105,14 @@ Then from another terminal:
 | Audio DMA interrupts | `AudioThread`: one thread calling the core every 128 samples; paced by blocking ALSA writes (`AlsaSink`), or by the steady clock with `--audio none` |
 | `CPSID i` critical sections | recursive mutex shared with the audio thread (`linuxIrqLock`) |
 | `NVIC_DisableIRQ(audio)` | flag + wait for the in-flight block |
-| FT812 display | `eve/EveEmu`: RAM_G, RAM_DL, co-processor FIFO; expands CMD_TEXT/NUMBER/GRADIENT/APPEND/MEMCPY/SETFONT2/SETBITMAP/matrix commands into display-list words like the chip, then rasterizes RECTS/LINES/LINE_STRIP/POINTS/BITMAPS (all bitmap formats, transforms, scissor, blend) with coverage anti-aliasing. `CMD_LOADIMAGE` (JPEG/PNG from the card) is skipped. Firmware fonts are the chip's own L4 blocks, so text is pixel-exact |
+| FT812 display | `eve/EveEmu`: RAM_G, RAM_DL, co-processor FIFO; expands CMD_TEXT/NUMBER/GRADIENT/APPEND/MEMCPY/SETFONT2/SETBITMAP/matrix commands into display-list words like the chip, then rasterizes RECTS/LINES/LINE_STRIP/POINTS/BITMAPS (all bitmap formats, transforms, scissor, blend) with coverage anti-aliasing. `CMD_LOADIMAGE` decodes JPEG/PNG to RGB565 via the vendored public-domain `stb_image` (Config > Info > Reference/Notes/Custom image viewer, `/Images/<name>/N.jpg`). Firmware fonts are the chip's own L4 blocks, so text is pixel-exact |
 | TCA8418 key matrix / pads | `SwitchGroupImpl`: same hold-repeat timing, fed by `key`/`pad` dev commands |
 | SD card (FatFs) | `FileSystemImpl`: POSIX over a directory; listings sorted case-insensitively; "hidden" = dot-files and `System Volume Information` |
 | FatFs fast-seek + raw sector DMA (sample streaming) | fake contiguous cluster chain per open file; `readSectorsAsync` is a synchronous `pread` |
 | EEPROM | 4 KiB `eeprom.bin` |
 | USB serial dev monitor | TCP 127.0.0.1:9170, plus `shot <path>` to dump the panel |
-| USB MIDI and DIN jack | `AlsaSeq`: ALSA sequencer client with one duplex port per device port; note-on velocity 0 delivered as note-off like the device libraries |
+| USB MIDI and DIN jack | `AlsaSeq`: ALSA sequencer client with one duplex port per device port (plus a host-only "Pads" port); note-on velocity 0 delivered as note-off like the device libraries |
+| Audio input (line/mic) | `AlsaSource`: non-blocking ALSA capture, silence when nothing has arrived |
 | Radio, battery, LEDs, codec, USB audio | stubs (codec master volume is applied in the sink) |
 | Cortex-M4 DSP intrinsics | `core/libs/Audio/utility/dspinst_portable.h`, bit-exact C |
 | `.ptfx` effect plug-ins | cannot run (ARM Thumb code); loader is a no-op |
@@ -141,5 +160,10 @@ sequence (same as on the hardware); wait before scripting input.
 
 1. headless core + scripted control: done
 2. ALSA audio output and sequencer MIDI: done (no audio input yet)
-3. FT812 renderer, window and keyboard: done. Open: image loading
-   (`CMD_LOADIMAGE`), audio input, MIDI-controller to pad mapping
+3. FT812 renderer, window and keyboard: done
+4. Image loading, audio input, Tracker-as-controller bridge, MIDI pads: done
+
+Firmware fixes found through the port: `Snapshots/` screenshots are now
+captured in 192 kB strips instead of one 1.5 MB request that overran graphics
+RAM (the cause of the device hanging after repeated Shift+power), and
+`sqrt_uint32(0)` is defined on hosts where division by zero traps.

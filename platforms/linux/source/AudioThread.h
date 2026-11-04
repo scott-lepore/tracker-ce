@@ -6,6 +6,7 @@
 #include <thread>
 
 class Tracker;
+class AlsaSource;
 
 // Stands in for the I2S DMA interrupts: every 128 samples it asks the core
 // for the next block (and feeds silent input). Paced by the steady clock to
@@ -16,7 +17,7 @@ class AudioThread
   public:
     typedef void (*BlockSink)(const int16_t* left, const int16_t* right, int frames, void* user);
 
-    void start(Tracker* tracker, BlockSink sink, void* user, bool realtimePacing);
+    void start(Tracker* tracker, BlockSink sink, void* user, bool realtimePacing, AlsaSource* input = nullptr);
     void stop();
     uint64_t blocksRendered() const { return blocks.load(); }
     uint32_t lateBlocks() const { return late.load(); }
@@ -24,6 +25,7 @@ class AudioThread
   private:
     void run();
     Tracker* tracker = nullptr;
+    AlsaSource* source = nullptr;
     BlockSink sink = nullptr;
     void* sinkUser = nullptr;
     bool pacing = true;

@@ -29,6 +29,15 @@ struct DevMonitorHooks
 };
 
 void devMonitorInit(DevSerialPort* port, Platform* platform, const DevMonitorHooks& hooks);
+// Input event tap (called by the core's button/pad/encoder handlers on the
+// main loop). Emits "ev <b|p|j> <idx> <value>" lines while `events 1` is on,
+// so a host can mirror the physical controls onto another instance.
+// Returns true when the event was consumed (controller mode): the caller must
+// then NOT pass it to the UI. Controller mode (`controller 1`) turns the
+// device into a dumb control surface for a host and ends automatically when
+// the host disconnects.
+bool devMonitorInputEvent(char kind, uint8_t idx, int16_t value);
+bool devMonitorControllerMode();
 // Call from the main loop (never from the audio interrupt).
 void devMonitorUpdate();
 

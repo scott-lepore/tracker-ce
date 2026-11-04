@@ -18,7 +18,7 @@ Usage examples:
 
 Needs pyserial. Port auto-detected by USB id 16d0:0e9f; override with --port or $TRACKER_PORT.
 Use --linux (or --port socket://127.0.0.1:9170) to drive the Linux build instead;
-`shot out.png` saves its emulated screen.
+`shot out.png` saves its emulated screen; `bridge` mirrors the physical Tracker's\ncontrols onto the Linux build.
 """
 import argparse
 import os
@@ -301,6 +301,38 @@ def main():
             os.makedirs(os.path.dirname(out), exist_ok=True)
             open(out, "wb").write(image)
             print(f"{got} bytes of config written to {out} (restart tracker-linux to apply)")
+        elif c == "bridge":
+            # Mirror the physical Tracker's buttons, pads and jog onto a running tracker-linux.
+            # 'bridge [mirror] [target]': default = controller mode (the Tracker stops reacting
+            # locally); 'mirror' keeps it working normally while also forwarding.
+            mirror = "mirror" in args
+            rest = [x for x in args if x != "mirror"]
+            target = rest[0] if rest else LINUX_PORT_URL
+            dst = Tracker(target)
+            mode_cmd = "events 1" if mirror else "controller 1"
+            if not t.ok(t.cmd(mode_cmd, echo=False)):
+                sys.exit(f"device refused '{mode_cmd}' (old firmware?)")
+            print(f"bridging {port} -> {target} ({'mirror' if mirror else 'controller mode'}); Ctrl-C to stop")
+            n = 0
+            try:
+                while True:
+                    l = t.readline(timeout=1.0)
+                    if not l or not l.startswith("ev "):
+                        continue
+                    _, kind, idx, val = l.split()
+                    if kind == "b":
+                        dst.cmd(f"key {idx} {'p' if val != '0' else 'r'}", echo=False, timeout=1.0)
+                    elif kind == "p":
+                        dst.cmd(f"pad {idx} {'p' if val != '0' else 'r'}", echo=False, timeout=1.0)
+                    elif kind == "j":
+                        dst.cmd(f"jog {val}", echo=False, timeout=1.0)
+                    n += 1
+            except KeyboardInterrupt:
+                print(f"\n{n} events forwarded")
+            finally:
+                t.cmd("controller 0", echo=False)
+                t.cmd("events 0", echo=False)
+                dst.close()
         elif c == "shot":
             # Linux build only: dump the emulated panel (PPM, converted to PNG when PIL is available)
             out = args[0] if args else "tracker-screen.png"

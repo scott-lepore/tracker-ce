@@ -110,6 +110,7 @@ class EveEmu
     size_t fifoPos = 0;
     uint32_t cmdDl = 0;
     bool imageDataMode = false;
+    std::vector<uint8_t> imageData; // bytes following CMD_LOADIMAGE
 
     // co-processor state
     uint32_t fontPtr[32] = { 0 };

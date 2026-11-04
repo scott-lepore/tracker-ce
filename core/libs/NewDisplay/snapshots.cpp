@@ -74,55 +74,54 @@ void cDisplay::doScreenShot()
 
     auto [isOpen, bmpHandle] =
       fileSystem->openFile(bmpName, FileSystem::FileOpenMode::kWriteCreateNew);
-
+    if (!isOpen)
+    {
+        return;
+    }
     fileSystem->writeFile(fileHeader, fileHeaderSize, bmpHandle);
     fileSystem->writeFile(infoHeader, infoHeaderSize, bmpHandle);
 
-    uint8_t buf[3200];
-    uint16_t readstep = 0;
+    // Capture in strips of 60 rows (800 x 60 x 4 = 192 kB) into the controls
+    // area of RAM_G. The previous code asked the chip for a 1600 x 240 snapshot
+    // (1.5 MB) from an address 150000 bytes into a 1 MiB RAM, which overran
+    // graphics memory and could stall the co-processor. BMP rows are stored
+    // bottom-up, so walk the strips from the bottom of the screen.
+    constexpr int kStripRows = 60;
+    constexpr uint32_t kRowBytes = bmpWidth * bytesPerPixel;
+    uint8_t buf[kRowBytes];
 
-    displayDriver->beginCoProList();
-    API_CMD_SNAPSHOT2(0x20, controlsRamStartAddress, 0, 240, 1600, 240);
-    displayDriver->endCoProList();
-    displayDriver->awaitCoProEmpty();
-
-    readstep = 0;
-
-    while (readstep < 240)
+    for (int strip = (int)(bmpHeight / kStripRows) - 1; strip >= 0; strip--)
     {
-        displayDriver->readDataRAMG(
-          buf, 3200, (controlsRamStartAddress + (3200 * 240) - 3200) - readstep * 3200);
-        fileSystem->writeFile(buf, 3200, bmpHandle);
-        readstep++;
-    }
+        displayDriver->beginCoProList();
+        API_CMD_SNAPSHOT2(0x20, controlsRamStartAddress, 0, strip * kStripRows, bmpWidth, kStripRows);
+        displayDriver->endCoProList();
+        displayDriver->awaitCoProEmpty();
 
-    displayDriver->beginCoProList();
-    API_CMD_SNAPSHOT2(0x20, controlsRamStartAddress, 0, 0, 1600, 240);
-    displayDriver->endCoProList();
-    displayDriver->awaitCoProEmpty();
-
-    readstep = 0;
-
-    while (readstep < 242)
-    {
-        displayDriver->readDataRAMG(
-          buf, 3200, (controlsRamStartAddress + (3200 * 240) - 3200) - readstep * 3200);
-        fileSystem->writeFile(buf, 3200, bmpHandle);
-        readstep++;
+        for (int row = kStripRows - 1; row >= 0; row--)
+        {
+            displayDriver->readDataRAMG(buf, kRowBytes, controlsRamStartAddress + row * kRowBytes);
+            fileSystem->writeFile(buf, kRowBytes, bmpHandle);
+        }
     }
 
     fileSystem->closeFile(bmpHandle);
 
+    // The strips overwrote the cached control display lists; clear and redraw.
     displayDriver->beginCoProList();
-    API_CMD_MEMZERO(controlsRamStartAddress, 600000);
-
+    API_CMD_MEMZERO(controlsRamStartAddress, kStripRows * kRowBytes);
     displayDriver->endCoProList();
 
     resetControlQueue();
-
     for (uint8_t i = 0; i < controlsCount; i++)
     {
-        refreshControl(i);
+        // Only redraw what is on screen. Hidden controls may hold stale data
+        // pointers from a previous module; updating them read invalid memory
+        // (found as a crash in the Linux port, a possible hang on the device).
+        cDisplayControl* p = controlsTable[i];
+        if (p != nullptr && (p->style & controlStyleShow))
+        {
+            refreshControl(i);
+        }
     }
 }
 
