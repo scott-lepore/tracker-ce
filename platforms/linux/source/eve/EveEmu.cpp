@@ -1,5 +1,6 @@
 #include "EveEmu.h"
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
@@ -65,6 +66,18 @@ inline int sext(uint32_t v, int bits)
     uint32_t m = 1u << (bits - 1);
     return (int)((v ^ m) - m);
 }
+struct PrimTimer
+{
+    uint64_t& ns;
+    std::chrono::steady_clock::time_point t0;
+    PrimTimer(uint64_t& n, uint64_t& calls) : ns(n), t0(std::chrono::steady_clock::now()) { calls++; }
+    ~PrimTimer()
+    {
+        ns += (uint64_t)std::chrono::duration_cast<std::chrono::nanoseconds>(
+                std::chrono::steady_clock::now() - t0)
+                .count();
+    }
+};
 inline uint8_t clamp8(int v) { return (uint8_t)(v < 0 ? 0 : (v > 255 ? 255 : v)); }
 inline double clampd(double v, double lo, double hi) { return v < lo ? lo : (v > hi ? hi : v); }
 } // namespace
@@ -135,11 +148,13 @@ void EveEmu::getProps(uint32_t& addr, uint32_t& w, uint32_t& h) const
 
 void EveEmu::execute()
 {
+    statExecCalls++;
     while (fifoPos + 4 <= fifo.size())
     {
         size_t pos = fifoPos;
         if (!runCommand(pos))
             break; // incomplete command, wait for more data
+        statCommands++;
         fifoPos = pos;
     }
     if (fifoPos == fifo.size())
@@ -156,6 +171,7 @@ void EveEmu::execute()
 
 void EveEmu::dlPush(uint32_t word)
 {
+    statDlWords++;
     if (cmdDl + 4 <= kRamDlSize)
     {
         wr32(&ramDL[cmdDl], word);
@@ -581,6 +597,7 @@ void EveEmu::cmdSnapshot2(uint32_t fmt, uint32_t ptr, int x, int y, int w, int h
 // ------------------------------------------------------------- render -----
 void EveEmu::render()
 {
+    auto t0 = std::chrono::steady_clock::now();
     gs = GState();
     stackDepth = 0;
     primitive = 0;
@@ -708,6 +725,9 @@ void EveEmu::render()
     }
     front = back;
     frames++;
+    statRenderNs += (uint64_t)std::chrono::duration_cast<std::chrono::nanoseconds>(
+                      std::chrono::steady_clock::now() - t0)
+                      .count();
 }
 
 void EveEmu::execPrimitiveVertex(int x16, int y16)
@@ -746,28 +766,50 @@ void EveEmu::blendPixel(int x, int y, uint8_t r, uint8_t g, uint8_t b, uint8_t a
 {
     if (x < gs.scX || y < gs.scY || x >= gs.scX + gs.scW || y >= gs.scY + gs.scH) return;
     if (x < 0 || y < 0 || x >= kWidth || y >= kHeight) return;
-    int sa = (int)lrint(a * coverage);
-    if (sa <= 0 && gs.blendSrc == 2 && gs.blendDst == 4) return;
+    int sa = coverage >= 1.0 ? a : (int)(a * coverage + 0.5);
     uint32_t& d = back[y * kWidth + x];
     uint8_t& da = backA[y * kWidth + x];
+    const bool normal = gs.blendSrc == 2 && gs.blendDst == 4;
+    const bool fullMask = gs.maskR && gs.maskG && gs.maskB;
+    if (normal)
+    {
+        if (sa <= 0) return;
+        if (sa >= 255 && fullMask)
+        {
+            d = ((uint32_t)r << 16) | ((uint32_t)g << 8) | b;
+            if (gs.maskA) da = 255;
+            return;
+        }
+        int dr = (d >> 16) & 255, dg = (d >> 8) & 255, db = d & 255;
+        int inv = 255 - sa;
+        int nr = (r * sa + dr * inv + 127) / 255;
+        int ng = (g * sa + dg * inv + 127) / 255;
+        int nb = (b * sa + db * inv + 127) / 255;
+        if (!gs.maskR) nr = dr;
+        if (!gs.maskG) ng = dg;
+        if (!gs.maskB) nb = db;
+        if (gs.maskA) da = (uint8_t)std::min(255, (sa * 255 + da * inv + 127) / 255);
+        d = ((uint32_t)nr << 16) | ((uint32_t)ng << 8) | (uint32_t)nb;
+        return;
+    }
     int dr = (d >> 16) & 255, dg = (d >> 8) & 255, db = d & 255;
-    auto factor = [&](uint8_t f) -> double {
+    auto factor = [&](uint8_t f) -> int { // in 1/255
         switch (f)
         {
-            case 0: return 0.0;             // ZERO
-            case 1: return 1.0;             // ONE
-            case 2: return sa / 255.0;      // SRC_ALPHA
-            case 3: return da / 255.0;      // DST_ALPHA
-            case 4: return 1.0 - sa / 255.0; // ONE_MINUS_SRC_ALPHA
-            case 5: return 1.0 - da / 255.0; // ONE_MINUS_DST_ALPHA
-            default: return 1.0;
+            case 0: return 0;
+            case 1: return 255;
+            case 2: return sa;
+            case 3: return da;
+            case 4: return 255 - sa;
+            case 5: return 255 - da;
+            default: return 255;
         }
     };
-    double fs = factor(gs.blendSrc), fd = factor(gs.blendDst);
-    int nr = clamp8((int)lrint(r * fs + dr * fd));
-    int ng = clamp8((int)lrint(g * fs + dg * fd));
-    int nb = clamp8((int)lrint(b * fs + db * fd));
-    int na = clamp8((int)lrint(sa * fs + da * fd));
+    int fs = factor(gs.blendSrc), fd = factor(gs.blendDst);
+    int nr = clamp8((r * fs + dr * fd + 127) / 255);
+    int ng = clamp8((g * fs + dg * fd + 127) / 255);
+    int nb = clamp8((b * fs + db * fd + 127) / 255);
+    int na = clamp8((sa * fs + da * fd + 127) / 255);
     if (!gs.maskR) nr = dr;
     if (!gs.maskG) ng = dg;
     if (!gs.maskB) nb = db;
@@ -777,6 +819,7 @@ void EveEmu::blendPixel(int x, int y, uint8_t r, uint8_t g, uint8_t b, uint8_t a
 
 void EveEmu::clearRegion(bool)
 {
+    PrimTimer timer_(statPrimNs[0], statPrimCalls[0]);
     int x0 = std::max(0, gs.scX), y0 = std::max(0, gs.scY);
     int x1 = std::min(kWidth, gs.scX + gs.scW), y1 = std::min(kHeight, gs.scY + gs.scH);
     uint32_t c = ((uint32_t)gs.cr << 16) | ((uint32_t)gs.cg << 8) | gs.cb;
@@ -789,6 +832,7 @@ void EveEmu::clearRegion(bool)
 
 void EveEmu::drawPoint(double cx, double cy)
 {
+    PrimTimer timer_(statPrimNs[3], statPrimCalls[3]);
     double r = gs.pointSize / 16.0;
     int x0 = (int)floor(cx - r - 1), x1 = (int)ceil(cx + r + 1);
     int y0 = (int)floor(cy - r - 1), y1 = (int)ceil(cy + r + 1);
@@ -803,6 +847,7 @@ void EveEmu::drawPoint(double cx, double cy)
 
 void EveEmu::drawLine(double x0, double y0, double x1, double y1)
 {
+    PrimTimer timer_(statPrimNs[2], statPrimCalls[2]);
     double hw = gs.lineWidth / 16.0; // EVE: line width is the half width
     int bx0 = (int)floor(std::min(x0, x1) - hw - 1), bx1 = (int)ceil(std::max(x0, x1) + hw + 1);
     int by0 = (int)floor(std::min(y0, y1) - hw - 1), by1 = (int)ceil(std::max(y0, y1) + hw + 1);
@@ -821,15 +866,46 @@ void EveEmu::drawLine(double x0, double y0, double x1, double y1)
 
 void EveEmu::drawRect(double x0, double y0, double x1, double y1)
 {
+    PrimTimer timer_(statPrimNs[1], statPrimCalls[1]);
     // EVE rectangles extend by the line width beyond the two vertices, with
     // corners rounded by that same radius.
     double r = gs.lineWidth / 16.0;
     double lx = std::min(x0, x1), hx = std::max(x0, x1), ly = std::min(y0, y1), hy = std::max(y0, y1);
     int bx0 = (int)floor(lx - r - 1), bx1 = (int)ceil(hx + r + 1);
     int by0 = (int)floor(ly - r - 1), by1 = (int)ceil(hy + r + 1);
+    // pixels whose centre lies at least 0.5 inside the expanded box are fully covered
+    int ix0 = (int)ceil(lx - r + 0.5 - 0.5), ix1 = (int)floor(hx + r - 0.5 - 0.5);
+    int iy0 = (int)ceil(ly - r + 0.5 - 0.5), iy1 = (int)floor(hy + r - 0.5 - 0.5);
+    // keep the corner regions (radius r) out of the fast fill
+    int cx0 = (int)ceil(lx), cx1 = (int)floor(hx) - 1, cy0 = (int)ceil(ly), cy1 = (int)floor(hy) - 1;
+    const bool solid = gs.a == 255 && gs.blendSrc == 2 && gs.blendDst == 4 && gs.maskR && gs.maskG && gs.maskB;
+    const uint32_t solidColor = ((uint32_t)gs.r << 16) | ((uint32_t)gs.g << 8) | gs.b;
+    // clip window for the span fill (scissor and screen)
+    const int cx = std::max(0, gs.scX), cx1e = std::min(kWidth, gs.scX + gs.scW);
+    const int cy = std::max(0, gs.scY), cy1e = std::min(kHeight, gs.scY + gs.scH);
     for (int y = by0; y <= by1; y++)
+    {
+        bool rowInside = y >= iy0 && y <= iy1;
+        bool rowCornerFree = y >= cy0 && y <= cy1; // between the corner arcs vertically
         for (int x = bx0; x <= bx1; x++)
         {
+            bool colInside = x >= ix0 && x <= ix1;
+            bool colCornerFree = x >= cx0 && x <= cx1;
+            if (rowInside && colInside && (rowCornerFree || colCornerFree))
+            {
+                if (solid && y >= cy && y < cy1e && x >= cx && x < cx1e)
+                {
+                    // opaque normal blend: fill the rest of the solid span in one go
+                    int xe = std::min(ix1, cx1e - 1);
+                    if (!rowCornerFree) xe = std::min(xe, cx1);
+                    std::fill(&back[y * kWidth + x], &back[y * kWidth + xe + 1], solidColor);
+                    if (gs.maskA) std::fill(&backA[y * kWidth + x], &backA[y * kWidth + xe + 1], (uint8_t)255);
+                    x = xe;
+                    continue;
+                }
+                blendPixel(x, y, gs.r, gs.g, gs.b, gs.a, 1.0);
+                continue;
+            }
             double px = x + 0.5, py = y + 0.5;
             double dx = std::max(std::max(lx - px, px - hx), 0.0);
             double dy = std::max(std::max(ly - py, py - hy), 0.0);
@@ -837,10 +913,12 @@ void EveEmu::drawRect(double x0, double y0, double x1, double y1)
             double cov = clampd(0.5 - d, 0, 1);
             if (cov > 0) blendPixel(x, y, gs.r, gs.g, gs.b, gs.a, cov);
         }
+    }
 }
 
 void EveEmu::drawGradient(int x0, int y0, uint32_t c0, int x1, int y1, uint32_t c1)
 {
+    PrimTimer timer_(statPrimNs[5], statPrimCalls[5]);
     int sx0 = std::max(0, gs.scX), sy0 = std::max(0, gs.scY);
     int sx1 = std::min(kWidth, gs.scX + gs.scW), sy1 = std::min(kHeight, gs.scY + gs.scH);
     double ddx = x1 - x0, ddy = y1 - y0, len2 = ddx * ddx + ddy * ddy;
@@ -850,9 +928,10 @@ void EveEmu::drawGradient(int x0, int y0, uint32_t c0, int x1, int y1, uint32_t 
         for (int x = sx0; x < sx1; x++)
         {
             double t = len2 > 0 ? clampd(((x + 0.5 - x0) * ddx + (y + 0.5 - y0) * ddy) / len2, 0, 1) : 0;
-            uint8_t r = clamp8((int)lrint(r0 + (r1 - r0) * t));
-            uint8_t g = clamp8((int)lrint(g0 + (g1 - g0) * t));
-            uint8_t b = clamp8((int)lrint(b0 + (b1 - b0) * t));
+            int ti = (int)(t * 256.0 + 0.5);
+            uint8_t r = clamp8(r0 + (((r1 - r0) * ti) >> 8));
+            uint8_t g = clamp8(g0 + (((g1 - g0) * ti) >> 8));
+            uint8_t b = clamp8(b0 + (((b1 - b0) * ti) >> 8));
             blendPixel(x, y, r, g, b, gs.a, 1.0);
         }
 }
@@ -907,6 +986,7 @@ bool EveEmu::fetchTexel(const Handle& h, uint32_t src, int u, int v, Px& out)
 
 void EveEmu::drawBitmap(int x, int y, uint8_t cell)
 {
+    PrimTimer timer_(statPrimNs[4], statPrimCalls[4]);
     const Handle& h = handles[gs.handle];
     int w = (int)h.width, hh = (int)h.sizeH;
     if (w == 0) w = 1024;   // EVE: 0 means maximum
@@ -916,6 +996,76 @@ void EveEmu::drawBitmap(int x, int y, uint8_t cell)
     int x0 = std::max(x, std::max(0, gs.scX)), y0 = std::max(y, std::max(0, gs.scY));
     int x1 = std::min(x + w, std::min(kWidth, gs.scX + gs.scW));
     int y1 = std::min(y + hh, std::min(kHeight, gs.scY + gs.scH));
+    if (x1 <= x0 || y1 <= y0) return;
+
+    const uint32_t bpp = bppOf(h.format);
+    const int texW = (int)(h.stride * 8 / (bpp ? bpp : 8));
+    const int texH = (int)h.height;
+    if (texW <= 0 || texH <= 0) return;
+
+    if (identity && !h.wrapX && !h.wrapY)
+    {
+        // Fast path: 1:1 texels, BORDER wrap, per-row pointers, inline blend.
+        const bool normal = gs.blendSrc == 2 && gs.blendDst == 4 && gs.maskR && gs.maskG && gs.maskB;
+        const int cr = gs.r, cg = gs.g, cb = gs.b, ca = gs.a;
+        int vEnd = std::min(y1 - y, texH);
+        int uEnd = std::min(x1 - x, texW);
+        for (int v = y0 - y; v < vEnd; v++)
+        {
+            uint32_t off = (src + (uint32_t)v * h.stride) & 0x3FFFFF;
+            const uint8_t* row = mem(off, h.stride);
+            if (!row) continue;
+            int py = y + v;
+            uint32_t* drow = &back[py * kWidth];
+            uint8_t* arow = &backA[py * kWidth];
+            for (int u = x0 - x; u < uEnd; u++)
+            {
+                int tr, tg, tb, ta;
+                switch (h.format)
+                {
+                    case FMT_L4: { int n = (u & 1) ? (row[u >> 1] & 15) : (row[u >> 1] >> 4); if (!n) continue; tr = tg = tb = 255; ta = n * 17; break; }
+                    case FMT_L8: { ta = row[u]; if (!ta) continue; tr = tg = tb = 255; break; }
+                    case FMT_L2: { int n = (row[u >> 2] >> (6 - 2 * (u & 3))) & 3; if (!n) continue; tr = tg = tb = 255; ta = n * 85; break; }
+                    case FMT_L1: { int bit = (row[u >> 3] >> (7 - (u & 7))) & 1; if (!bit) continue; tr = tg = tb = 255; ta = 255; break; }
+                    case FMT_RGB565: { uint16_t p = (uint16_t)(row[2 * u] | (row[2 * u + 1] << 8)); tr = (p >> 11) * 255 / 31; tg = ((p >> 5) & 63) * 255 / 63; tb = (p & 31) * 255 / 31; ta = 255; break; }
+                    case FMT_ARGB4: { uint16_t p = (uint16_t)(row[2 * u] | (row[2 * u + 1] << 8)); ta = (p >> 12) * 17; if (!ta) continue; tr = ((p >> 8) & 15) * 17; tg = ((p >> 4) & 15) * 17; tb = (p & 15) * 17; break; }
+                    default:
+                    {
+                        Px t;
+                        if (!fetchTexel(h, src, u, v, t) || t.a == 0) continue;
+                        tr = t.r; tg = t.g; tb = t.b; ta = t.a;
+                        break;
+                    }
+                }
+                int r = tr * cr / 255, g = tg * cg / 255, b = tb * cb / 255, a = ta * ca / 255;
+                int px = x + u;
+                if (normal)
+                {
+                    if (a <= 0) continue;
+                    uint32_t& d = drow[px];
+                    if (a >= 255)
+                    {
+                        d = ((uint32_t)r << 16) | ((uint32_t)g << 8) | (uint32_t)b;
+                        if (gs.maskA) arow[px] = 255;
+                        continue;
+                    }
+                    int inv = 255 - a;
+                    int dr = (d >> 16) & 255, dg = (d >> 8) & 255, db = d & 255;
+                    d = ((uint32_t)((r * a + dr * inv + 127) / 255) << 16) |
+                        ((uint32_t)((g * a + dg * inv + 127) / 255) << 8) |
+                        (uint32_t)((b * a + db * inv + 127) / 255);
+                    if (gs.maskA) arow[px] = (uint8_t)std::min(255, (a * 255 + arow[px] * inv + 127) / 255);
+                }
+                else
+                {
+                    blendPixel(px, py, (uint8_t)r, (uint8_t)g, (uint8_t)b, (uint8_t)a, 1.0);
+                }
+            }
+        }
+        return;
+    }
+
+    // General path: transforms, wrapping, bilinear filtering.
     for (int py = y0; py < y1; py++)
     {
         for (int px = x0; px < x1; px++)

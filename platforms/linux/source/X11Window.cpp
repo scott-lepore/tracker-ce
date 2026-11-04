@@ -94,9 +94,11 @@ bool X11Window::open(int s)
     Window w = XCreateSimpleWindow(d, root, 0, 0, W * scale, H * scale, 0, 0, BlackPixel(d, screen));
     XStoreName(d, w, "Tracker CE (Linux)");
     XSizeHints hints;
-    hints.flags = PMinSize | PMaxSize;
-    hints.min_width = hints.max_width = W * scale;
-    hints.min_height = hints.max_height = H * scale;
+    hints.flags = PMinSize | PAspect;
+    hints.min_width = W / 2;
+    hints.min_height = H / 2;
+    hints.min_aspect.x = hints.max_aspect.x = W;
+    hints.min_aspect.y = hints.max_aspect.y = H;
     XSetWMNormalHints(d, w, &hints);
     XSelectInput(d, w, KeyPressMask | KeyReleaseMask | ButtonPressMask | ExposureMask | StructureNotifyMask);
     Atom del = XInternAtom(d, "WM_DELETE_WINDOW", False);
@@ -105,23 +107,28 @@ bool X11Window::open(int s)
     XkbSetDetectableAutoRepeat(d, True, &supported);
     XMapWindow(d, w);
 
-    int depth = DefaultDepth(d, screen);
-    char* data = (char*)malloc((size_t)W * scale * H * scale * 4);
-    XImage* img = XCreateImage(d, DefaultVisual(d, screen), depth, ZPixmap, 0, data, W * scale,
-                               H * scale, 32, W * scale * 4);
-    if (!img)
-    {
-        fprintf(stderr, "x11: cannot create image (depth %d)\n", depth);
-        XCloseDisplay(d);
-        return false;
-    }
     display = d;
     window = w;
     gc = XCreateGC(d, w, 0, nullptr);
-    image = img;
     wmDelete = del;
+    winW = W * scale;
+    winH = H * scale;
+    ensureImage(winW, winH);
     XFlush(d);
     return true;
+}
+
+void X11Window::ensureImage(int w, int h)
+{
+    if (image && imgW == w && imgH == h) return;
+    Display* d = (Display*)display;
+    if (image) XDestroyImage((XImage*)image);
+    int screen = DefaultScreen(d);
+    char* data = (char*)malloc((size_t)w * h * 4);
+    image = XCreateImage(d, DefaultVisual(d, screen), DefaultDepth(d, screen), ZPixmap, 0, data, w, h, 32, w * 4);
+    imgW = w;
+    imgH = h;
+    lastFrame = 0xFFFFFFFF;
 }
 
 void X11Window::close()
@@ -141,23 +148,29 @@ void X11Window::present(const uint32_t* rgb, uint32_t frameId)
 {
     if (!display || frameId == lastFrame) return;
     lastFrame = frameId;
+    // aspect-fit the 800x480 frame into the window, nearest-neighbour scaling
+    int fitW = winW, fitH = winW * H / W;
+    if (fitH > winH) { fitH = winH; fitW = winH * W / H; }
+    if (fitW < 1 || fitH < 1) return;
+    ensureImage(fitW, fitH);
     XImage* img = (XImage*)image;
     uint32_t* dst = (uint32_t*)img->data;
-    if (scale == 1)
+    if (fitW == W && fitH == H)
     {
         memcpy(dst, rgb, (size_t)W * H * 4);
     }
     else
     {
-        for (int y = 0; y < H * scale; y++)
+        for (int y = 0; y < fitH; y++)
         {
-            const uint32_t* src = rgb + (y / scale) * W;
-            uint32_t* row = dst + (size_t)y * W * scale;
-            for (int x = 0; x < W * scale; x++)
-                row[x] = src[x / scale];
+            const uint32_t* src = rgb + (int)((int64_t)y * H / fitH) * W;
+            uint32_t* row = dst + (size_t)y * fitW;
+            for (int x = 0; x < fitW; x++)
+                row[x] = src[(int)((int64_t)x * W / fitW)];
         }
     }
-    XPutImage((Display*)display, window, (GC)gc, img, 0, 0, 0, 0, W * scale, H * scale);
+    int ox = (winW - fitW) / 2, oy = (winH - fitH) / 2;
+    XPutImage((Display*)display, window, (GC)gc, img, 0, 0, ox, oy, fitW, fitH);
     XFlush((Display*)display);
 }
 
@@ -173,6 +186,15 @@ bool X11Window::poll(const KeyFn& button, const KeyFn& pad, const JogFn& jog)
         {
             case Expose:
                 lastFrame = 0xFFFFFFFF; // force redraw on next present
+                break;
+            case ConfigureNotify:
+                if (ev.xconfigure.width != winW || ev.xconfigure.height != winH)
+                {
+                    winW = ev.xconfigure.width;
+                    winH = ev.xconfigure.height;
+                    XClearWindow(d, window);
+                    lastFrame = 0xFFFFFFFF;
+                }
                 break;
             case ClientMessage:
                 if ((Atom)ev.xclient.data.l[0] == wmDelete) return false;

@@ -34,7 +34,10 @@ class X11Window
     void* image = nullptr;   // XImage*
     unsigned long wmDelete = 0;
     int scale = 1;
+    int winW = 0, winH = 0;   // current window size (resizable, aspect-fit scaling)
+    int imgW = 0, imgH = 0;   // backing image size
     uint32_t lastFrame = 0xFFFFFFFF;
+    void ensureImage(int w, int h);
     bool ctrl = false;
     bool pressed[256] = { false };
 };

@@ -282,6 +282,18 @@ int main(int argc, char** argv)
             (unsigned long long)g_audio.blocksRendered(), g_audio.lateBlocks(), g_sink.underruns(),
             g_platform.display.emu.frameCounter(), g_platform.display.emu.unsupportedDl,
             g_platform.display.emu.unsupportedCmd, g_platform.display.emu.lastUnsupported);
+    fprintf(stderr, "eve: %llu exec calls, %llu commands, %llu dl words, render %.1f ms total\n",
+            (unsigned long long)g_platform.display.emu.statExecCalls,
+            (unsigned long long)g_platform.display.emu.statCommands,
+            (unsigned long long)g_platform.display.emu.statDlWords,
+            g_platform.display.emu.statRenderNs / 1e6);
+    {
+        static const char* names[6] = { "clear", "rect", "line", "point", "bitmap", "gradient" };
+        for (int i = 0; i < 6; i++)
+            fprintf(stderr, "eve:   %-8s %8llu calls %8.1f ms\n", names[i],
+                    (unsigned long long)g_platform.display.emu.statPrimCalls[i],
+                    g_platform.display.emu.statPrimNs[i] / 1e6);
+    }
     g_window.close();
     g_audio.stop();
     g_sink.close();

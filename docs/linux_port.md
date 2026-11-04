@@ -40,7 +40,9 @@ ports "USB MIDI" and "MIDI Jack"; connect a controller or a DAW with
 engine runs as fast as the CPU allows; for tests), `--quit-after SEC`.
 
 `--display x11|none` (default x11 when `$DISPLAY` is set) opens the panel
-window; `--scale 2` doubles it. With `--display none` the screen is still
+window; `--scale 2` starts it doubled. The window is resizable: the 800x480
+frame is scaled to fit (the UI is bitmap text on a fixed pixel grid, not
+vector, so it scales rather than re-flows; integer multiples stay crispest). With `--display none` the screen is still
 rendered, so `trackerdev.py --linux shot out.png` works headless.
 
 ### Keyboard

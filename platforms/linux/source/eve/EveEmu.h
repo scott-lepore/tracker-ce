@@ -44,6 +44,13 @@ class EveEmu
     uint32_t unsupportedDl = 0;
     uint32_t unsupportedCmd = 0;
     uint32_t lastUnsupported = 0;
+    uint64_t statCommands = 0;   // co-processor commands executed
+    uint64_t statDlWords = 0;    // display-list words written
+    uint64_t statExecCalls = 0;  // execute() invocations
+    uint64_t statRenderNs = 0;   // time spent in render()
+    // per-primitive profile: calls and nanoseconds (0 clear,1 rect,2 line,3 point,4 bitmap,5 gradient)
+    uint64_t statPrimCalls[6] = { 0 };
+    uint64_t statPrimNs[6] = { 0 };
 
   private:
     struct Handle
