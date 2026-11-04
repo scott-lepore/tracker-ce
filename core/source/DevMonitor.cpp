@@ -10,6 +10,7 @@
 #include "mtMidi.h"
 #include "mtSequencer.h"
 #include "mtStructs.h"
+#include "mtConfig.h"
 
 #include <cstdarg>
 #include <cstdio>
@@ -411,11 +412,49 @@ void cmdReboot()
     platform->resetMCU();
 }
 
+// cfg notesin <0-3> | cfg trackch <track 1-8> <ch 0-16> | cfg save
+// Sets the in-RAM config the way the Config screen would; `save` persists it.
+void cmdCfg(int argc, char** argv)
+{
+    if (argc >= 3 && !strcmp(argv[1], "notesin"))
+    {
+        int v = atoi(argv[2]);
+        if (v < 0 || v > 3)
+        {
+            err("notesin 0=off 1=usb 2=jack 3=both");
+            return;
+        }
+        mtConfig.midi.notesInMode = (uint8_t)v;
+        ok();
+    }
+    else if (argc >= 4 && !strcmp(argv[1], "trackch"))
+    {
+        int tr = atoi(argv[2]);
+        int ch = atoi(argv[3]);
+        if (tr < 1 || tr > kSampleTracks || ch < 0 || ch > 16)
+        {
+            err("trackch <track 1-8> <ch 0-16>");
+            return;
+        }
+        mtConfig.midi.trackNotesInChannel[tr - 1] = (uint8_t)ch;
+        ok();
+    }
+    else if (argc >= 2 && !strcmp(argv[1], "save"))
+    {
+        forceSaveConfig();
+        ok();
+    }
+    else
+    {
+        err("usage: cfg notesin <0-3> | cfg trackch <track> <ch> | cfg save");
+    }
+}
+
 void cmdHelp()
 {
     send("commands: ping stat mon <ms> tracks midi <ch> <note> <vel> [j] key <idx> <p|r|h> "
          "pad <0-47> <p|r|h> jog <delta> exists <path> rm <path> put <path> <size> "
-         "flash <file> reboot help\n");
+         "flash <file> cfg notesin|trackch|save reboot help\n");
     ok();
 }
 
@@ -435,6 +474,7 @@ void execute(char* text)
     if (!strcmp(c, "ping")) cmdPing();
     else if (!strcmp(c, "stat")) cmdStat();
     else if (!strcmp(c, "tracks")) cmdTracks();
+    else if (!strcmp(c, "cfg")) cmdCfg(argc, argv);
     else if (!strcmp(c, "midi")) cmdMidi(argc, argv);
     else if (!strcmp(c, "key")) cmdKey(argc, argv, false);
     else if (!strcmp(c, "pad")) cmdKey(argc, argv, true);
