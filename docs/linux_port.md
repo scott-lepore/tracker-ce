@@ -118,9 +118,10 @@ Font glyphs and layout come straight from the firmware. The rasterizer was
 calibrated against a device screenshot of the pattern editor: integer vertex
 coordinates address pixel centres, rectangles extend by the line width with
 corners rounded by that radius, and CMD_TEXT centres with `x - (w-1)/2`.
-Transformed (rotated) bitmaps sample texel `floor(u - 0.5)`. Result over six
+Transformed (rotated) bitmaps sample texel `floor(u - 0.5)`. Result over nine
 device screens (pattern, song, config, sample editor, sample loader,
-instrument parameters): 0.1 to 0.6 % of pixels differ by more than 30/255,
+instrument parameters and effects, track mixer, on-screen keyboard dialog):
+0.1 to 0.6 % of pixels differ by more than 30/255,
 half of that being the 1-px header separator, which the chip draws softer
 than this rasterizer; nothing structural.
 
