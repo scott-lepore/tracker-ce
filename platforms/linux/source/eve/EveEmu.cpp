@@ -586,6 +586,8 @@ void EveEmu::cmdNumber(int16_t x, int16_t y, uint16_t font, uint16_t opt, int32_
 
 void EveEmu::cmdSnapshot2(uint32_t fmt, uint32_t ptr, int x, int y, int w, int h)
 {
+    if (fmt == FMT_ARGB8_SNAPSHOT)
+        w /= 2; // chip quirk: ARGB8 width is given in 16-bit units (verified on hardware)
     for (int j = 0; j < h; j++)
     {
         for (int i = 0; i < w; i++)

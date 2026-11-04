@@ -82,9 +82,9 @@ void cDisplay::doScreenShot()
     fileSystem->writeFile(infoHeader, infoHeaderSize, bmpHandle);
 
     // Capture in strips of 60 rows (800 x 60 x 4 = 192 kB) into the controls
-    // area of RAM_G. The previous code asked the chip for a 1600 x 240 snapshot
-    // (1.5 MB) from an address 150000 bytes into a 1 MiB RAM, which overran
-    // graphics memory and could stall the co-processor. BMP rows are stored
+    // area of RAM_G instead of two 240-row halves, so less of the cached
+    // control display lists is clobbered. For the ARGB8 format (0x20) the chip
+    // counts width in 16-bit units, hence 2 * bmpWidth. BMP rows are stored
     // bottom-up, so walk the strips from the bottom of the screen.
     constexpr int kStripRows = 60;
     constexpr uint32_t kRowBytes = bmpWidth * bytesPerPixel;
@@ -93,7 +93,7 @@ void cDisplay::doScreenShot()
     for (int strip = (int)(bmpHeight / kStripRows) - 1; strip >= 0; strip--)
     {
         displayDriver->beginCoProList();
-        API_CMD_SNAPSHOT2(0x20, controlsRamStartAddress, 0, strip * kStripRows, bmpWidth, kStripRows);
+        API_CMD_SNAPSHOT2(0x20, controlsRamStartAddress, 0, strip * kStripRows, 2 * bmpWidth, kStripRows);
         displayDriver->endCoProList();
         displayDriver->awaitCoProEmpty();
 

@@ -32,7 +32,16 @@ class EveDisplayDriver final : public DisplayDriver
     void readDataRAMG(uint8_t* d, uint32_t n, uint32_t addr) override { emu.memRead(addr, d, n); }
     void readBackDataRAMG(uint8_t* d, uint32_t n, uint32_t addr) override { emu.memRead(addr, d, n); }
     uint8_t sendString(const char* string, uint32_t length) override;
-    void writeDataToCMD(const uint8_t* d, uint32_t n) override { emu.fifoWriteBytes(d, n); emu.execute(); }
+    void writeDataToCMD(const uint8_t* d, uint32_t n) override
+    {
+        // Raw data (image bytes) is padded to a 32-bit boundary like the SPI
+        // driver does, otherwise the following commands would be misaligned.
+        emu.fifoWriteBytes(d, n);
+        static const uint8_t zeros[4] = { 0, 0, 0, 0 };
+        if (n & 3)
+            emu.fifoWriteBytes(zeros, 4 - (n & 3));
+        emu.execute();
+    }
 
     void initStreamDma(uint16_t byteResolution, uint16_t w, uint16_t h, uint8_t* buf,
                        uint32_t dest) override

@@ -163,7 +163,8 @@ sequence (same as on the hardware); wait before scripting input.
 3. FT812 renderer, window and keyboard: done
 4. Image loading, audio input, Tracker-as-controller bridge, MIDI pads: done
 
-Firmware fixes found through the port: `Snapshots/` screenshots are now
-captured in 192 kB strips instead of one 1.5 MB request that overran graphics
-RAM (the cause of the device hanging after repeated Shift+power), and
-`sqrt_uint32(0)` is defined on hosts where division by zero traps.
+Firmware fixes found through the port: after a `Snapshots/` screenshot only
+visible controls are redrawn (hidden lists held stale text pointers, which
+crashed the port and is the likely cause of the device hanging after repeated
+Shift+power); the capture now runs in 192 kB strips; `sqrt_uint32(0)` is
+defined on hosts where division by zero traps.
