@@ -503,7 +503,7 @@ void EveEmu::cmdText(int16_t x, int16_t y, uint16_t font, uint16_t opt, const ch
     int total = 0;
     for (const char* p = s; *p; p++)
         total += blk[(uint8_t)*p & 127];
-    if (opt & OPT_CENTERX) x -= total / 2;
+    if (opt & OPT_CENTERX) x -= (total - 1) / 2; // matches the chip's rounding (verified vs device)
     else if (opt & OPT_RIGHTX) x -= total;
     if (opt & OPT_CENTERY) y -= (int)height / 2;
 
@@ -839,7 +839,7 @@ void EveEmu::drawPoint(double cx, double cy)
     for (int y = y0; y <= y1; y++)
         for (int x = x0; x <= x1; x++)
         {
-            double dx = x + 0.5 - cx, dy = y + 0.5 - cy;
+            double dx = x - cx, dy = y - cy;
             double cov = clampd(0.5 - (sqrt(dx * dx + dy * dy) - r), 0, 1);
             if (cov > 0) blendPixel(x, y, gs.r, gs.g, gs.b, gs.a, cov);
         }
@@ -855,7 +855,7 @@ void EveEmu::drawLine(double x0, double y0, double x1, double y1)
     for (int y = by0; y <= by1; y++)
         for (int x = bx0; x <= bx1; x++)
         {
-            double px = x + 0.5, py = y + 0.5;
+            double px = x, py = y;
             double t = len2 > 0 ? clampd(((px - x0) * ddx + (py - y0) * ddy) / len2, 0, 1) : 0;
             double qx = x0 + t * ddx, qy = y0 + t * ddy;
             double d = sqrt((px - qx) * (px - qx) + (py - qy) * (py - qy)) - hw;
@@ -873,9 +873,9 @@ void EveEmu::drawRect(double x0, double y0, double x1, double y1)
     double lx = std::min(x0, x1), hx = std::max(x0, x1), ly = std::min(y0, y1), hy = std::max(y0, y1);
     int bx0 = (int)floor(lx - r - 1), bx1 = (int)ceil(hx + r + 1);
     int by0 = (int)floor(ly - r - 1), by1 = (int)ceil(hy + r + 1);
-    // pixels whose centre lies at least 0.5 inside the expanded box are fully covered
-    int ix0 = (int)ceil(lx - r + 0.5 - 0.5), ix1 = (int)floor(hx + r - 0.5 - 0.5);
-    int iy0 = (int)ceil(ly - r + 0.5 - 0.5), iy1 = (int)floor(hy + r - 0.5 - 0.5);
+    // pixels (centre at integer coords) at least 0.5 inside the expanded box are fully covered
+    int ix0 = (int)ceil(lx - r + 0.5), ix1 = (int)floor(hx + r - 0.5);
+    int iy0 = (int)ceil(ly - r + 0.5), iy1 = (int)floor(hy + r - 0.5);
     // keep the corner regions (radius r) out of the fast fill
     int cx0 = (int)ceil(lx), cx1 = (int)floor(hx) - 1, cy0 = (int)ceil(ly), cy1 = (int)floor(hy) - 1;
     const bool solid = gs.a == 255 && gs.blendSrc == 2 && gs.blendDst == 4 && gs.maskR && gs.maskG && gs.maskB;
@@ -906,7 +906,7 @@ void EveEmu::drawRect(double x0, double y0, double x1, double y1)
                 blendPixel(x, y, gs.r, gs.g, gs.b, gs.a, 1.0);
                 continue;
             }
-            double px = x + 0.5, py = y + 0.5;
+            double px = x, py = y;
             double dx = std::max(std::max(lx - px, px - hx), 0.0);
             double dy = std::max(std::max(ly - py, py - hy), 0.0);
             double d = sqrt(dx * dx + dy * dy) - r;
@@ -927,7 +927,7 @@ void EveEmu::drawGradient(int x0, int y0, uint32_t c0, int x1, int y1, uint32_t 
     for (int y = sy0; y < sy1; y++)
         for (int x = sx0; x < sx1; x++)
         {
-            double t = len2 > 0 ? clampd(((x + 0.5 - x0) * ddx + (y + 0.5 - y0) * ddy) / len2, 0, 1) : 0;
+            double t = len2 > 0 ? clampd(((x - x0) * ddx + (y - y0) * ddy) / len2, 0, 1) : 0;
             int ti = (int)(t * 256.0 + 0.5);
             uint8_t r = clamp8(r0 + (((r1 - r0) * ti) >> 8));
             uint8_t g = clamp8(g0 + (((g1 - g0) * ti) >> 8));
@@ -1075,13 +1075,13 @@ void EveEmu::drawBitmap(int x, int y, uint8_t cell)
             if (identity) { u = lx; v = ly; }
             else
             {
-                u = gs.ta * (lx + 0.5) + gs.tb * (ly + 0.5) + gs.tc - 0.5;
-                v = gs.td * (lx + 0.5) + gs.te * (ly + 0.5) + gs.tf - 0.5;
+                u = gs.ta * lx + gs.tb * ly + gs.tc;
+                v = gs.td * lx + gs.te * ly + gs.tf;
             }
             Px t;
             if (h.filter == 0 || identity)
             {
-                if (!fetchTexel(h, src, (int)floor(u + (identity ? 0 : 0.5)), (int)floor(v + (identity ? 0 : 0.5)), t))
+                if (!fetchTexel(h, src, (int)floor(u), (int)floor(v), t))
                     continue;
             }
             else

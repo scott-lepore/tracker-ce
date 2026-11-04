@@ -280,6 +280,27 @@ def main():
             if not a.no_wait:
                 wait_for_reboot(port)
             return 0
+        elif c == "eeprom-pull":
+            # Clone the device configuration into the Linux port's emulated EEPROM.
+            out = args[0] if args else os.path.expanduser("~/.local/share/tracker-linux/eeprom.bin")
+            CONFIG_OFFSET, TOTAL = 10, 4096
+            image = bytearray(open(out, "rb").read()) if os.path.exists(out) else bytearray(b"\xff" * TOTAL)
+            image = image[:TOTAL] + bytearray(b"\xff" * (TOTAL - len(image)))
+            lines = t.cmd(f"eeprom 0 {TOTAL - CONFIG_OFFSET}", echo=False, timeout=30)
+            if not t.ok(lines):
+                print("\n".join(lines))
+                return 1
+            got = 0
+            for l in lines:
+                if l == "ok":
+                    continue
+                off, hexdata = l.split(" ", 1)
+                data = bytes.fromhex(hexdata)
+                image[CONFIG_OFFSET + int(off):CONFIG_OFFSET + int(off) + len(data)] = data
+                got += len(data)
+            os.makedirs(os.path.dirname(out), exist_ok=True)
+            open(out, "wb").write(image)
+            print(f"{got} bytes of config written to {out} (restart tracker-linux to apply)")
         elif c == "shot":
             # Linux build only: dump the emulated panel (PPM, converted to PNG when PIL is available)
             out = args[0] if args else "tracker-screen.png"

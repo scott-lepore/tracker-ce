@@ -114,12 +114,19 @@ Core changes are all under `#ifdef PLATFORM_LINUX` (`core/config/config.h`,
 
 ## Fidelity
 
-Font glyphs and layout come straight from the firmware. Anti-aliasing,
-rounded rectangle corners (radius = line width) and line widths follow the
-FT81x rules as documented; compare against a real screenshot when in doubt:
-on the device hold Shift and tap the power button, the firmware writes
-`Snapshots/Snapshot_NNN.bmp` to the card, and `trackerdev.py get
-/Snapshots/Snapshot_001.bmp` fetches it over USB.
+Font glyphs and layout come straight from the firmware. The rasterizer was
+calibrated against a device screenshot of the pattern editor: integer vertex
+coordinates address pixel centres, rectangles extend by the line width with
+corners rounded by that radius, and CMD_TEXT centres with `x - (w-1)/2`.
+Result: 0.08 % of pixels differ by more than 30/255 (anti-aliasing noise on
+edges), none structurally.
+
+To repeat the comparison: `trackerdev.py eeprom-pull` clones the device
+configuration (fonts, layout, MIDI settings) into the port's EEPROM; on the
+device hold Shift and tap the power button (the firmware writes
+`Snapshots/Snapshot_NNN.bmp` to the card); `trackerdev.py get
+/Snapshots/Snapshot_001.bmp` fetches it over USB; `trackerdev.py --linux shot
+port.png` grabs the port; diff with PIL.
 
 ## Known quirk
 

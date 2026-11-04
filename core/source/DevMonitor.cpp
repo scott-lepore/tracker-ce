@@ -2,6 +2,7 @@
 // See docs/dev_serial_monitor.md and tools/trackerdev.py.
 
 #include "DevMonitor.h"
+#include "ConfigManager.h"
 
 #include "Platform.h"
 #include "Profiler.h"
@@ -511,11 +512,50 @@ void cmdCfg(int argc, char** argv)
     }
 }
 
+// eeprom <offset> <len>: hex dump of the configuration memory (via ConfigManager,
+// so offsets are relative to the config block). Lets a host clone the device
+// settings into the Linux port.
+void cmdEeprom(int argc, char** argv)
+{
+    if (argc < 3)
+    {
+        err("usage: eeprom <offset> <len>");
+        return;
+    }
+    int off = atoi(argv[1]);
+    int len = atoi(argv[2]);
+    if (off < 0 || len <= 0 || len > 4096)
+    {
+        err("range");
+        return;
+    }
+    uint8_t buf[64];
+    while (len > 0)
+    {
+        int n = len < 64 ? len : 64;
+        if (!platform->getConfigManager()->readData(off, buf, n))
+        {
+            err("read failed");
+            return;
+        }
+        char line[64 * 2 + 16];
+        int o = snprintf(line, sizeof(line), "%d ", off);
+        for (int i = 0; i < n; i++)
+            o += snprintf(line + o, sizeof(line) - o, "%02x", buf[i]);
+        line[o++] = '\n';
+        line[o] = 0;
+        send(line);
+        off += n;
+        len -= n;
+    }
+    ok();
+}
+
 void cmdHelp()
 {
     send("commands: ping stat mon <ms> tracks midi <ch> <note> <vel> [j] key <idx> <p|r|h> "
          "pad <0-47> <p|r|h> jog <delta> exists <path> rm <path> put <path> <size> get <path> "
-         "flash <file> cfg notesin|trackch|save shot <path> reboot help\n");
+         "flash <file> cfg notesin|trackch|save shot <path> eeprom <off> <len> reboot help\n");
     ok();
 }
 
@@ -543,6 +583,7 @@ void execute(char* text)
     else if (!strcmp(c, "mon")) cmdMon(argc, argv);
     else if (!strcmp(c, "exists")) cmdExists(argc, argv);
     else if (!strcmp(c, "shot")) cmdShot(argc, argv);
+    else if (!strcmp(c, "eeprom")) cmdEeprom(argc, argv);
     else if (!strcmp(c, "rm")) cmdRm(argc, argv);
     else if (!strcmp(c, "put")) cmdPut(argc, argv);
     else if (!strcmp(c, "get")) cmdGet(argc, argv);

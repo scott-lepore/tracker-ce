@@ -25,6 +25,7 @@ so the port is user-accessible, ignored by ModemManager and available as `/dev/t
 | `exists <path>` / `rm <path>` | | SD card paths, e.g. `/Firmware/x.ptf` |
 | `put <path> <size>` | `go`, then `done <path> size= crc=` | Raw bytes follow; serviced incrementally so the UI stays alive. 5 s inactivity aborts |
 | `get <path>` | `data <size>` then raw bytes | Download a file from the card (UI pauses while it streams) |
+| `eeprom <offset> <len>` | `<offset> <hex>` lines | Dump configuration memory; `trackerdev.py eeprom-pull` clones it into the Linux port |
 | `shot <path>` | | Linux build only: save the emulated screen as PPM (`trackerdev.py shot x.png` converts) |
 | `flash <file>` | `flashing, device will reboot` | File must exist in `/Firmware/`, name 31 chars or fewer. Calls the normal bootloader path |
 | `cfg notesin <0-3>` / `cfg trackch <track> <ch>` / `cfg save` | | Sets Config > MIDI "Notes in" (0 off, 1 USB, 2 jack, 3 both) and per-track in channels in RAM, as the menu would; `save` persists to EEPROM. For scripted tests |
