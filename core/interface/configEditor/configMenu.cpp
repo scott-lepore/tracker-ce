@@ -30,8 +30,8 @@ constexpr uint8_t baseMenuGroupCount = 7 + MT_MODS; // MT: + Mods
 constexpr uint8_t projectMenuGroupCount = 10 + MT_MODS + MT_HAS_SWING + MT_HAS_HUMANIZE; // MT: + Mods, Global Swing, Humanize
 constexpr uint8_t generalMenuGroupCount = 12;
 #else
-constexpr uint8_t baseMenuGroupCount = 6;
-constexpr uint8_t projectMenuGroupCount = 10;
+constexpr uint8_t baseMenuGroupCount = 6 + MT_MODS; // MT: + Mods
+constexpr uint8_t projectMenuGroupCount = 10 + MT_MODS + MT_HAS_SWING + MT_HAS_HUMANIZE; // MT: + Mods, Global Swing, Humanize
 constexpr uint8_t generalMenuGroupCount = 12;
 #endif
 
