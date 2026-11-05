@@ -5,6 +5,7 @@ Usage examples:
   trackerdev.py ping
   trackerdev.py stat
   trackerdev.py mon 500                 # periodic stats until Ctrl-C
+  trackerdev.py midilog                 # live incoming MIDI + routing until Ctrl-C
   trackerdev.py tracks
   trackerdev.py midi 1 60 100           # note on, ch 1, C4, vel 100 (USB path)
   trackerdev.py midi 1 60 0             # note off
@@ -256,6 +257,17 @@ def main():
                 pass
             finally:
                 t.cmd("mon 0", echo=False)
+        elif c == "midilog" and not args:
+            t.cmd("midilog 1")
+            try:
+                while True:
+                    l = t.readline(timeout=5)
+                    if l:
+                        print(l, flush=True)
+            except KeyboardInterrupt:
+                pass
+            finally:
+                t.cmd("midilog 0", echo=False)
         elif c == "put":
             if len(args) != 2:
                 sys.exit("usage: put <local> <remote path>")

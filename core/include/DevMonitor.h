@@ -38,6 +38,17 @@ void devMonitorInit(DevSerialPort* port, Platform* platform, const DevMonitorHoo
 // the host disconnects.
 bool devMonitorInputEvent(char kind, uint8_t idx, int16_t value);
 bool devMonitorControllerMode();
+// MIDI input log (`midilog 1`): one line per incoming note, CC and transport
+// message plus what the firmware did with it. Main loop only.
+bool devMonitorMidiLogOn();
+void devMonitorMidiLog(const char* fmt, ...);
+void devMonitorMidiClock(char src); // counted, reported once per 96 clocks
+#define DEVMIDILOG(...)                                                                            \
+    do                                                                                             \
+    {                                                                                              \
+        if (devMonitorMidiLogOn())                                                                 \
+            devMonitorMidiLog(__VA_ARGS__);                                                        \
+    } while (0)
 // Call from the main loop (never from the audio interrupt).
 void devMonitorUpdate();
 

@@ -8,6 +8,7 @@
 #include "sampleRecorder/sampleRecorder.h"
 #include "songEditor/songEditor.h"
 
+#include "DevMonitor.h"
 #include "Platform.h"
 #include "TrackerImpl.h"
 #include "core/interface.h"
@@ -176,12 +177,20 @@ void handleJackNoteOn(byte channel, byte pitch, byte velocity)
         return;
     }
 
+    DEVMIDILOG("mi jack note on ch=%d note=%d vel=%d\n", channel, pitch, velocity);
+    if (!(mtConfig.midi.notesInMode == notesIn_jack || mtConfig.midi.notesInMode == notesIn_usb_and_jack))
+        DEVMIDILOG("mi   ignored: Config > MIDI > Notes in is not Jack\n");
+
     if (mtConfig.midi.notesInMode == notesIn_jack ||
         mtConfig.midi.notesInMode == notesIn_usb_and_jack)
     {
         if (handleTrackMidiNoteOn(channel, pitch, velocity))
             return;
 
+        if (!isIncomingChannelDesired(channel))
+            DEVMIDILOG("mi   ignored: no track listens on ch %d and Notes channel is %d\n", channel, mtConfig.midi.notesInChannel);
+        else
+            DEVMIDILOG("mi   -> selected track via Notes channel (voicemode=%d)\n", sequencer.getMidiInVoiceMode());
         if (isIncomingChannelDesired(channel))
         {
 
@@ -224,12 +233,20 @@ void handleUsbNoteOn(byte channel, byte pitch, byte velocity)
         return;
     }
 
+    DEVMIDILOG("mi usb note on ch=%d note=%d vel=%d\n", channel, pitch, velocity);
+    if (!(mtConfig.midi.notesInMode == notesIn_usb || mtConfig.midi.notesInMode == notesIn_usb_and_jack))
+        DEVMIDILOG("mi   ignored: Config > MIDI > Notes in is not USB\n");
+
     if (mtConfig.midi.notesInMode == notesIn_usb ||
         mtConfig.midi.notesInMode == notesIn_usb_and_jack)
     {
         if (handleTrackMidiNoteOn(channel, pitch, velocity))
             return;
 
+        if (!isIncomingChannelDesired(channel))
+            DEVMIDILOG("mi   ignored: no track listens on ch %d and Notes channel is %d\n", channel, mtConfig.midi.notesInChannel);
+        else
+            DEVMIDILOG("mi   -> selected track via Notes channel (voicemode=%d)\n", sequencer.getMidiInVoiceMode());
         if (isIncomingChannelDesired(channel))
         {
             int8_t transp = 12 * (mtConfig.midi.middleC - 2);
@@ -262,6 +279,7 @@ void handleUsbNoteOn(byte channel, byte pitch, byte velocity)
 
 void handleJackNoteOff(byte channel, byte pitch, [[maybe_unused]] byte velocity)
 {
+    DEVMIDILOG("mi jack note off ch=%d note=%d\n", channel, pitch);
 
     //	Serial.printf("OFF\tch: %d, pitch: %d, velo: %d\r\n", channel, pitch,
     //					velocity);
@@ -311,6 +329,7 @@ void handleJackNoteOff(byte channel, byte pitch, [[maybe_unused]] byte velocity)
 
 void handleUsbNoteOff(byte channel, byte pitch, [[maybe_unused]] byte velocity)
 {
+    DEVMIDILOG("mi usb note off ch=%d note=%d\n", channel, pitch);
 
     //	Serial.printf("OFF\tch: %d, pitch: %d, velo: %d\r\n", channel, pitch,
     //					velocity);
@@ -358,6 +377,7 @@ void handleUsbNoteOff(byte channel, byte pitch, [[maybe_unused]] byte velocity)
 
 void handleJackControlChange(byte channel, byte number, byte value)
 {
+    DEVMIDILOG("mi jack cc ch=%d num=%d val=%d\n", channel, number, value);
 
     if ((mtConfig.midi.ccInMode == ccIn_None) || (mtConfig.midi.ccInMode == ccIn_usb))
         return;
@@ -376,6 +396,7 @@ void handleJackControlChange(byte channel, byte number, byte value)
 
 void handleUSBControlChange(byte channel, byte number, byte value)
 {
+    DEVMIDILOG("mi usb cc ch=%d num=%d val=%d\n", channel, number, value);
     if ((mtConfig.midi.ccInMode == ccIn_None) || (mtConfig.midi.ccInMode == ccIn_jack))
         return;
 
@@ -482,6 +503,10 @@ AUDIO_CORE_RAM void sendMidiClock()
 
 void receiveUsbRealtime(uint8_t type)
 {
+    if (type == Midi::MessageType::kClock)
+        devMonitorMidiClock('u');
+    else
+        DEVMIDILOG("mi usb realtime 0x%02X\n", type);
     switch (type)
     {
         case Midi::MessageType::kClock:
@@ -524,6 +549,7 @@ void receiveUsbRealtime(uint8_t type)
 
 void receiveJackStart()
 {
+    DEVMIDILOG("mi jack start\n");
     if (mtConfig.midi.transportIn == clockIn_Jack)
     {
         receiveStart();
@@ -532,6 +558,7 @@ void receiveJackStart()
 
 void receiveJackStop()
 {
+    DEVMIDILOG("mi jack stop\n");
     if (mtConfig.midi.transportIn == clockIn_Jack)
     {
         receiveStop();
@@ -540,6 +567,7 @@ void receiveJackStop()
 
 void receiveJackContinue()
 {
+    DEVMIDILOG("mi jack continue\n");
     if (mtConfig.midi.transportIn == clockIn_Jack)
     {
         receiveContinue();
@@ -548,6 +576,7 @@ void receiveJackContinue()
 
 void receiveJackClock()
 {
+    devMonitorMidiClock('j');
     if (mtConfig.midi.clkIn == clockIn_Jack)
     {
         receiveClock();

@@ -560,6 +560,42 @@ void cmdSnap()
 }
 
 bool eventsEnabled = false;
+bool midiLogEnabled = false;
+uint32_t midiClockCount[2] = { 0, 0 };
+
+const char* notesInName(uint8_t m)
+{
+    switch (m)
+    {
+        case notesIn_None: return "Off";
+        case notesIn_usb: return "USB";
+        case notesIn_jack: return "Jack";
+        case notesIn_usb_and_jack: return "USB+Jack";
+        default: return "?";
+    }
+}
+
+void cmdMidiLog(int argc, char** argv)
+{
+    if (argc < 2)
+    {
+        err("usage: midilog <0|1>");
+        return;
+    }
+    midiLogEnabled = atoi(argv[1]) != 0;
+    midiClockCount[0] = midiClockCount[1] = 0;
+    if (midiLogEnabled)
+    {
+        sendf("mi settings: notes in=%s notes channel=%d (0=all) voicemode=%d (0=sequencer) tracks=",
+              notesInName(mtConfig.midi.notesInMode),
+              mtConfig.midi.notesInChannel,
+              sequencer.getMidiInVoiceMode());
+        for (int tr = 0; tr < kSampleTracks; tr++)
+            sendf("%d%c", mtConfig.midi.trackNotesInChannel[tr], tr + 1 < kSampleTracks ? ',' : '\n');
+    }
+    ok();
+}
+
 bool controllerMode = false;
 
 void cmdEvents(int argc, char** argv)
@@ -592,7 +628,7 @@ void cmdHelp()
 {
     send("commands: ping stat mon <ms> tracks midi <ch> <note> <vel> [j] key <idx> <p|r|h> "
          "pad <0-47> <p|r|h> jog <delta> exists <path> rm <path> put <path> <size> get <path> "
-         "flash <file> cfg notesin|trackch|save shot <path> eeprom <off> <len> snap events <0|1> controller <0|1> reboot help\n");
+         "flash <file> cfg notesin|trackch|save shot <path> eeprom <off> <len> snap events <0|1> controller <0|1> midilog <0|1> reboot help\n");
     ok();
 }
 
@@ -623,6 +659,7 @@ void execute(char* text)
     else if (!strcmp(c, "eeprom")) cmdEeprom(argc, argv);
     else if (!strcmp(c, "snap")) cmdSnap();
     else if (!strcmp(c, "events")) cmdEvents(argc, argv);
+    else if (!strcmp(c, "midilog")) cmdMidiLog(argc, argv);
     else if (!strcmp(c, "controller")) cmdController(argc, argv);
     else if (!strcmp(c, "rm")) cmdRm(argc, argv);
     else if (!strcmp(c, "put")) cmdPut(argc, argv);
@@ -708,4 +745,34 @@ bool devMonitorControllerMode()
         eventsEnabled = false;
     }
     return controllerMode;
+}
+
+bool devMonitorMidiLogOn()
+{
+    if (!midiLogEnabled || port == nullptr)
+        return false;
+    if (!port->connected())
+    {
+        midiLogEnabled = false;
+        return false;
+    }
+    return true;
+}
+
+void devMonitorMidiLog(const char* fmt, ...)
+{
+    va_list args;
+    va_start(args, fmt);
+    vsnprintf(out, sizeof(out), fmt, args);
+    va_end(args);
+    send(out);
+}
+
+void devMonitorMidiClock(char src)
+{
+    if (!devMonitorMidiLogOn())
+        return;
+    uint32_t& n = midiClockCount[src == 'j' ? 1 : 0];
+    if (++n % 96 == 0)
+        sendf("mi %s clock x96 (total %lu)\n", src == 'j' ? "jack" : "usb", (unsigned long)n);
 }

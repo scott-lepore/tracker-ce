@@ -7,6 +7,7 @@
 #include "fileManager.h"
 #include "mtAudioEngine.h"
 #include "mtSequencer.h"
+#include "DevMonitor.h"
 #include "mtStructs.h"
 #include "sampleRecorder/sampleRecorder.h"
 
@@ -2873,7 +2874,10 @@ AUDIO_CORE_FLASH void Sequencer::handleNoteOn(
 void Sequencer::handleTrackMidiNoteOn(uint8_t track, uint8_t note, uint8_t velocity)
 {
     if (track >= kSampleTracks || isTrackEngineMuted(track))
+    {
+        DEVMIDILOG("mi   -> track %d is muted, silent\n", track + 1);
         return;
+    }
 
     if (!isPlay() && !player.preRecMetronomeActive)
     {
@@ -2884,6 +2888,10 @@ void Sequencer::handleTrackMidiNoteOn(uint8_t track, uint8_t note, uint8_t veloc
     int instrument =
       player.trackLastInstrument[track] >= 0 ? player.trackLastInstrument[track] : track;
     player.trackMidiInNote[track] = note;
+    DEVMIDILOG("mi   -> track %d instrument %d%s\n",
+               track + 1,
+               instrument + 1,
+               player.trackLastInstrument[track] >= 0 ? "" : " (fallback, nothing played on track yet)");
 
     int velo = mapClamped<int>(velocity, 0, 127, 0, getInstrumentVelo(instrument));
     bool isMidi = isMidiInstrument(instrument);
