@@ -28,16 +28,17 @@ layout asserts by design.
 
 ### Prebuilt binary
 
-The release binary is 32-bit and was built on Ubuntu 24.04, so it needs glibc
-2.39 or newer and the 32-bit runtime libraries:
+The release binary is 32-bit and was built on Ubuntu 24.04. It needs glibc
+2.38 and GCC 13's libstdc++ or newer (Ubuntu 24.04, Debian 13, Fedora 39 and
+later) plus the 32-bit runtime libraries:
 
     sudo dpkg --add-architecture i386
     sudo apt update
     sudo apt install libc6:i386 libstdc++6:i386 libx11-6:i386 \
                      libasound2t64:i386 libasound2-plugins:i386
 
-On Debian 12 and other older releases the ALSA package is `libasound2:i386`;
-build from source there if glibc is older. `libasound2-plugins:i386` provides
+Older distributions: build from source (see above). Package names above are
+Ubuntu/Debian ones. `libasound2-plugins:i386` provides
 the PulseAudio plug-in that carries sound to PipeWire or PulseAudio.
 
 `--sd` must point at a copy of a Tracker card (the Workspace, Projects and
