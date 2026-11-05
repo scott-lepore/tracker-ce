@@ -8,6 +8,7 @@ platforms/mk66/build/
 platforms/linux/build/
 platforms/imx/build-*/
 editor-fx-sdk/build/
+core/mods/tests/build/
 *.axf
 *.lss
 *.ptf

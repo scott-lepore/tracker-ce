@@ -7,6 +7,10 @@
 #include "imageViewer/imageViewerDefs.h"
 
 #include "polyassert.h"
+#include "colorsong.h" // MT:
+#include "humanize.h" // MT:
+#include "mods.h"     // MT:
+#include "swing.h"    // MT:
 
 #include <array>
 
@@ -22,8 +26,8 @@ constexpr uint8_t baseMenuGroupCount = 8;
 constexpr uint8_t projectMenuGroupCount = 10;
 constexpr uint8_t generalMenuGroupCount = 9;
 #elif defined(PLATFORM_IMX)
-constexpr uint8_t baseMenuGroupCount = 7;
-constexpr uint8_t projectMenuGroupCount = 10;
+constexpr uint8_t baseMenuGroupCount = 7 + MT_MODS; // MT: + Mods
+constexpr uint8_t projectMenuGroupCount = 10 + MT_MODS + MT_HAS_SWING + MT_HAS_HUMANIZE; // MT: + Mods, Global Swing, Humanize
 constexpr uint8_t generalMenuGroupCount = 12;
 #else
 constexpr uint8_t baseMenuGroupCount = 6;
@@ -51,6 +55,11 @@ cMenuGroup menuUsb(menuBase, "USB", 2);
 
 cMenuGroup menuMetro(menuBase, "Metronome", 5);
 cMenuGroup menuFirmware(menuBase, "Firmware", 4);
+
+#if MT_MODS // MT: Config -> Mods, one Off/On item per mod after the count
+constexpr uint8_t modsMenuItemCount = 1 + mods::kBuiltModCount;
+cMenuGroup menuMods(menuBase, "Mods", modsMenuItemCount);
+#endif
 
 #ifdef TRACKER_MINI
 cMenuGroup menuFunctionButtons(menuBase, "Fn buttons binding", 8);
@@ -82,6 +91,70 @@ cMenuItem melLimiterMode(menuProject, "Limiter mode", limiterDesc, menuTypeItemL
 cMenuItem melSendsMode(menuProject, "Sends mode", sendsDesc,  menuTypeItemListTextWithAction, &setupSendsMode);
 cMenuItem melHeadroomMode(menuProject, "Extra headroom", headroomDesc,  menuTypeItemListTextWithAction, &setupHeadroomMode);
 cMenuItem melSnapToZeroMode(menuProject, "Snap to zero", snapToZeroDesc,  menuTypeItemListTextWithAction, &setupSnapToZeroMode);
+
+#if MT_MODS // MT: Project Settings -> Mods: one Off/On item per mod for this project, then where the defaults are
+constexpr uint8_t projectModsMenuItemCount = mods::kBuiltModCount + 1;
+cMenuGroup menuProjectMods(menuProject, "Mods", projectModsMenuItemCount);
+
+#if MT_HAS_COLORSONG
+const char projectColorsongDesc[] = { "Color Song for this project: Song screen blocks are colored by their "
+                                      "content, so the same material can be followed through the song. "
+                                      "Same instruments, same hue. " };
+const strItemTypeListTextWithAction projectColorsongSetup{
+    &mods::switches[static_cast<size_t>(mods::Mod::colorsong)], 2, onOffStateTexts, mods::projectColorsongSwitchChanged };
+cMenuItem melProjectColorsong(menuProjectMods, "Color Song", projectColorsongDesc, menuTypeItemListTextWithAction, &projectColorsongSetup);
+#endif
+
+#if MT_HAS_SWING
+const char projectSwingDesc[] = { "Global Swing for this project: every take and every pattern starts "
+                                  "with the Swing amount. A Swing FX still changes it until the pattern "
+                                  "starts again. " };
+const strItemTypeListTextWithAction projectSwingSetup{
+    &mods::switches[static_cast<size_t>(mods::Mod::swing)], 2, onOffStateTexts, mods::projectSwingSwitchChanged };
+cMenuItem melProjectSwing(menuProjectMods, "Global Swing", projectSwingDesc, menuTypeItemListTextWithAction, &projectSwingSetup);
+#endif
+
+#if MT_HAS_HUMANIZE
+const char projectHumanizeDesc[] = { "Humanize for this project: a button on the Pattern screen's third "
+                                     "page that randomizes timing and level of the selected notes. " };
+const strItemTypeListTextWithAction projectHumanizeSetup{
+    &mods::switches[static_cast<size_t>(mods::Mod::humanize)], 2, onOffStateTexts, mods::projectSwitchChanged };
+cMenuItem melProjectHumanize(menuProjectMods, "Humanize", projectHumanizeDesc, menuTypeItemListTextWithAction, &projectHumanizeSetup);
+#endif
+
+const strItemTypeLabel projectModsDefaultsSetup{ "Config > Mods" };
+cMenuItem melProjectModsDefaults(menuProjectMods, "Defaults", nullptr, menuTypeItemLabel, &projectModsDefaultsSetup);
+
+#if MT_HAS_SWING // MT: Project Settings -> Global Swing
+cMenuGroup menuProjectSwing(menuProject, "Global Swing", 2);
+cMenuItem melSwingOn(menuProjectSwing, "Global swing", projectSwingDesc, menuTypeItemListTextWithAction, &projectSwingSetup);
+const char swingAmountDesc[] = { "25 to 75, as the Swing FX: 50 is no swing, above 50 the off-beat steps "
+                                 "come later. Used when Global swing is On. " };
+const strItemTypeListValues swingAmountSetup{ &mods::swing::settings.amount, 0, 50, 1, 25 };
+cMenuItem melSwingAmount(menuProjectSwing, "Swing amount", swingAmountDesc, menuTypeItemListValues, &swingAmountSetup);
+#endif
+
+#if MT_HAS_HUMANIZE // MT: Project Settings -> Humanize
+cMenuGroup menuProjectHumanize(menuProject, "Humanize", 6);
+cMenuItem melHumanizeOn(menuProjectHumanize, "Humanize", projectHumanizeDesc, menuTypeItemListTextWithAction, &projectHumanizeSetup);
+const char humanizeTimingDesc[] = { "How far Humanize moves timing. Empty m: 0 to this value. A value "
+                                    "already there: a random value in a window this wide. " };
+const char humanizeVolumeDesc[] = { "Off: Humanize changes only timing and leaves V alone. " };
+const char humanizeRangeDesc[] = { "How far Humanize moves level: a random value in a window this wide. " };
+const char humanizeMidiDesc[] = { "Center for an empty V on MIDI and synth instruments. " };
+const char humanizeSampleDesc[] = { "Center for an empty V on sample instruments. " };
+const strItemTypeListValues humanizeTimingSetup{ &mods::humanize::settings.timingRange, 0, 99, 1, 1 };
+const strItemTypeListTextWithAction humanizeVolumeSetup{ &mods::humanize::settings.volumeOn, 2, onOffStateTexts, mods::projectSettingEdited };
+const strItemTypeListValues humanizeRangeSetup{ &mods::humanize::settings.volumeRange, 0, 99, 1, 1 };
+const strItemTypeListValues humanizeMidiSetup{ &mods::humanize::settings.midiVelocity, 0, 99, 1, 1 };
+const strItemTypeListValues humanizeSampleSetup{ &mods::humanize::settings.sampleVolume, 0, 99, 1, 1 };
+cMenuItem melHumanizeTiming(menuProjectHumanize, "Timing range", humanizeTimingDesc, menuTypeItemListValues, &humanizeTimingSetup);
+cMenuItem melHumanizeVolume(menuProjectHumanize, "Volume/velocity", humanizeVolumeDesc, menuTypeItemListTextWithAction, &humanizeVolumeSetup);
+cMenuItem melHumanizeRange(menuProjectHumanize, "Volume range", humanizeRangeDesc, menuTypeItemListValues, &humanizeRangeSetup);
+cMenuItem melHumanizeMidi(menuProjectHumanize, "MIDI velocity", humanizeMidiDesc, menuTypeItemListValues, &humanizeMidiSetup);
+cMenuItem melHumanizeSample(menuProjectHumanize, "Sample volume", humanizeSampleDesc, menuTypeItemListValues, &humanizeSampleSetup);
+#endif
+#endif
 
 // general
 const strItemTypeListTextWithAction setupRadioRegion{ &mtConfig.general.radioRegion, 4, radioRegion, setRadioRegion };
@@ -295,6 +368,47 @@ cMenuItem melResetConfig(menuFirmware,
                          nullptr,
                          menuTypeItemActionButton,
                          &resetConfigSetup);
+
+//==================================================================================================================================================================
+// MT: Mods
+#if MT_MODS
+const strItemTypeLabel modsCountSetup{ mods::kModCountText.text };
+
+cMenuItem melModsCount(menuMods,
+                       "Mods in build",
+                       nullptr,
+                       menuTypeItemLabel,
+                       &modsCountSetup);
+
+// Each item is the mod's default for new projects; a project's own switch is in
+// Project Settings -> Mods.
+#if MT_HAS_COLORSONG
+const char modsColorsongDesc[] = { "Whether new projects start with Color Song on. Each project has its "
+                                   "own switch in Project Settings > Mods. Color Song: Song screen blocks "
+                                   "are colored by their content. " };
+const strItemTypeListTextWithAction modsColorsongSetup{
+    &mods::defaults[static_cast<size_t>(mods::Mod::colorsong)], 2, onOffStateTexts, mods::defaultsChanged };
+cMenuItem melModsColorsong(menuMods, "Color Song", modsColorsongDesc, menuTypeItemListTextWithAction, &modsColorsongSetup);
+#endif
+
+#if MT_HAS_SWING
+const char modsSwingDesc[] = { "Whether new projects start with Global Swing on. Each project has its "
+                               "own switch in Project Settings > Mods. Global Swing: every take and "
+                               "every pattern starts with the Swing amount. " };
+const strItemTypeListTextWithAction modsSwingSetup{
+    &mods::defaults[static_cast<size_t>(mods::Mod::swing)], 2, onOffStateTexts, mods::defaultsChanged };
+cMenuItem melModsSwing(menuMods, "Global Swing", modsSwingDesc, menuTypeItemListTextWithAction, &modsSwingSetup);
+#endif
+
+#if MT_HAS_HUMANIZE
+const char modsHumanizeDesc[] = { "Whether new projects start with Humanize on. Each project has its "
+                                  "own switch in Project Settings > Mods. Humanize: a Pattern button "
+                                  "that randomizes timing and level of the selected notes. " };
+const strItemTypeListTextWithAction modsHumanizeSetup{
+    &mods::defaults[static_cast<size_t>(mods::Mod::humanize)], 2, onOffStateTexts, mods::defaultsChanged };
+cMenuItem melModsHumanize(menuMods, "Humanize", modsHumanizeDesc, menuTypeItemListTextWithAction, &modsHumanizeSetup);
+#endif
+#endif
 
 //==================================================================================================================================================================
 // USB
@@ -832,6 +946,10 @@ void cConfigEditor::configListConfirm(uint8_t list_pos)
         }
         default: break;
     }
+
+#if MT_MODS // MT: list items have no action of their own
+    mods::projectSettingEdited();
+#endif
 
     saveConfigToEeprom();
 }
