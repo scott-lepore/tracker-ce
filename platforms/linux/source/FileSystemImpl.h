@@ -37,8 +37,8 @@ class FileSystemImpl final : public FileSystem
     std::tuple<bool, FileHandle> openFile(const char* filepath,
                                           FileOpenMode openMode = kRead,
                                           FileHandle* fileHandle = nullptr) override;
-    size_t readFile(void* destBuf, size_t bufLen, FileHandle file) override;
-    size_t writeFile(const void* data, size_t dataSize, FileHandle fileHandle) override;
+    int32_t readFile(void* destBuf, size_t bufLen, FileHandle file) override;
+    int32_t writeFile(const void* data, size_t dataSize, FileHandle fileHandle) override;
     bool seekFileCur(int offset, FileHandle fileHandle) override;
     bool seekFile(uint32_t pos, FileHandle fileHandle) override;
     void closeFile(FileHandle file, bool deleteOnClose = true) override;

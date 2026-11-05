@@ -4,13 +4,14 @@ Welcome to the **Polyend Tracker Community Edition** repository!
 
 Built directly from the original Polyend firmware source code, Tracker CE opens up the Polyend Tracker platform to musicians, sound designers, and developers around the world. Whether you are here to flash the latest Community Edition firmware, want to build your own idea on the Tracker, design custom themes and fonts, write Sample Editor plugins, or build new synthesizer engines, we are excited to have you here.
 
-This unified codebase powers all three hardware instruments in the Tracker family:
-* **Original Polyend Tracker** (`NXP Kinetis MK66FX1M0`, Cortex-M4F @ 180 MHz)
-* **Polyend Tracker+ & Tracker Mini** (`NXP i.MX RT1051/RT1064`, Cortex-M7 @ 600 MHz)
+### Download Firmware:
+
+See [Releases](https://github.com/polyend/tracker-ce/releases) for the latest downloads for all devices.
 
 ### What's New:
 See [`CHANGELOG.md`](CHANGELOG.md) for the full list of new features and improvements.
 
+---
 
 ## Notice: Official Support, Warranty & Hardware Disclaimer
 
@@ -26,13 +27,18 @@ See [`CHANGELOG.md`](CHANGELOG.md) for the full list of new features and improve
 
 ## Repository Structure
 
+This unified codebase powers all three hardware instruments in the Tracker family:
+* **Original Polyend Tracker** (`NXP Kinetis MK66FX1M0`, Cortex-M4F @ 180 MHz)
+* **Polyend Tracker+ & Tracker Mini** (`NXP i.MX RT1051/RT1064`, Cortex-M7 @ 600 MHz)
+
+
 ```text
 .
 ├── Makefile                # Unified top-level build & version management
 ├── version.mk              # Centralized version & build number configuration
 ├── CHANGELOG.md            # Release history & feature highlights
 ├── CONTRIBUTING.md         # Contribution rules & hardware testing workflow
-├── LICENSE                 # PolyForm Noncommercial 1.0.0 (+ Music Use & MIT for .ptfx SDK)
+├── LICENSE                 # MIT License (+ No Wholesale Commercial Clones & Precompiled Synth Terms)
 ├── NOTICE.md               # Third-party open-source attributions
 ├── core/                   # Shared Tracker application, audio engine, UI & open synth engines
 ├── platforms/
@@ -156,12 +162,9 @@ This repository is part of a growing open-source ecosystem around the Polyend Tr
 
 ## License
 
-* **Firmware Source Code, Headers, Open Synth SDK (`synth/include/`), and Documentation (`docs/`)**: Licensed under the **PolyForm Noncommercial License 1.0.0 with Polyend Additional Permissions** (see [`LICENSE`](LICENSE)).
+* **Source Code, SDKs, Open Synth Engines (`core/synth/engines/`), `.ptfx` Sample Editor SDK (`editor-fx-sdk/`), Drivers & Utilities**: Licensed under the **MIT License with a Wholesale Commercial Clone Restriction** (see [`LICENSE`](LICENSE)).
   * **Musicians & Creators**: Using the firmware for commercial music production, albums, paid live performances/gigs, sample packs, and monetized streaming/YouTube content is **expressly permitted**.
-  * **No Selling of Firmware or Competing Products**: Selling the firmware or derivative software, or embedding any part of the codebase into competing commercial hardware or software products, is prohibited.
-    
-* **`.ptfx` Sample Editor FX SDK (`editor-fx-sdk/`)**: Licensed under the **MIT License** (see Part 3 of [`LICENSE`](LICENSE)). Developers may freely build, distribute, and sell `.ptfx` plugins.
-  
-* **Precompiled Synth & DSP Libraries (`synth/lib/libPolySynth.a`, `synth/lib/libPolyDSP.a`)**: Provided under the [Polyend Precompiled Synthesizer & DSP Library License](synth/lib/LICENSE-PROPRIETARY.txt) for building firmware targeting authentic Polyend hardware.
-  
+  * **Developers & Plugin Authors**: Reusing individual source files, drivers, DSP algorithms, UI widgets, or open-source C++ synth engines (`CHIP`, etc.) in your own open-source or commercial projects—and selling `.ptfx` Sample Editor plugins—is **expressly permitted** under the MIT License.
+  * **No Wholesale Commercial Clones**: You may **not** sell compiled `.ptf` firmware builds, manufacture/sell commercial clone hardware running the Tracker firmware, or sell a direct port/wholesale clone of the complete Tracker application as a paid software product.
+* **Precompiled Synth & DSP Libraries (`synth/lib/libPolySynth.a`, `synth/lib/libPolyDSP.a`)**: Provided under the [Polyend Precompiled Synthesizer & DSP Library License](synth/lib/LICENSE-PROPRIETARY.txt), permitting free use on authentic Polyend hardware as well as personal/DIY non-commercial projects (commercial embedding of the precompiled `.a` binaries is prohibited).
 * **Third-Party Components**: See [`NOTICE.md`](NOTICE.md).

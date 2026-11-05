@@ -244,22 +244,22 @@ std::tuple<bool, FileSystem::FileHandle> FileSystemImpl::openFile(const char* fi
     return std::make_tuple(isOpen, (FileHandle)f);
 }
 
-size_t FileSystemImpl::readFile(void* destBuf, size_t bufLen, FileHandle fileHandle)
+int32_t FileSystemImpl::readFile(void* destBuf, size_t bufLen, FileHandle fileHandle)
 {
     File* f = (File*)fileHandle;
     if (!f || !f->open)
-        return 0;
+        return -1;
     ssize_t n = ::read(f->fd, destBuf, bufLen);
-    return n < 0 ? 0 : (size_t)n;
+    return n < 0 ? -1 : (int32_t)n; // like SdFat: -1 on error
 }
 
-size_t FileSystemImpl::writeFile(const void* data, size_t dataSize, FileHandle fileHandle)
+int32_t FileSystemImpl::writeFile(const void* data, size_t dataSize, FileHandle fileHandle)
 {
     File* f = (File*)fileHandle;
     if (!f || !f->open)
-        return 0;
+        return -1;
     ssize_t n = ::write(f->fd, data, dataSize);
-    return n < 0 ? 0 : (size_t)n;
+    return n < 0 ? -1 : (int32_t)n;
 }
 
 bool FileSystemImpl::seekFileCur(int offset, FileHandle fileHandle)
