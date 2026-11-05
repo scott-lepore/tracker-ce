@@ -39,6 +39,11 @@ static void devPadHook(uint8_t idx, uint8_t action)
 
 void devSerialStart(PlatformImpl* platform)
 {
+    // Opt-in, like the Tracker+/Mini dev console: the monitor can read, write
+    // and flash files, so it only runs when the card carries a /.develop file.
+    if (!platform->getFileSystem()->exists("/.develop"))
+        return;
+
     devPlatform = platform;
     DevMonitorHooks hooks;
     hooks.button = devButtonHook;
