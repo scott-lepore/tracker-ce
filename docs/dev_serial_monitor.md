@@ -7,6 +7,10 @@ files to the SD card and trigger a firmware update without touching the card.
 
 Host tool: [`tools/trackerdev.py`](../tools/trackerdev.py) (needs `pyserial`). The same protocol serves the
 headless Linux build over TCP (`tools/trackerdev.py --linux`, see [linux_port.md](linux_port.md)).
+**Opt-in:** the monitor can read, write and flash files on the card, so on the device it only
+starts when the SD card holds a file named `.develop` in its root (any content). Without it the
+firmware behaves like a normal build. The Linux port always runs it, on 127.0.0.1 only.
+
 Linux setup: install [`tools/70-polyend-tracker.rules`](../tools/70-polyend-tracker.rules)
 so the port is user-accessible, ignored by ModemManager and available as `/dev/tracker`.
 
@@ -32,6 +36,7 @@ so the port is user-accessible, ignored by ModemManager and available as `/dev/t
 | `shot <path>` | | Linux build only: save the emulated screen as PPM (`trackerdev.py shot x.png` converts) |
 | `flash <file>` | `flashing, device will reboot` | File must exist in `/Firmware/`, name 31 chars or fewer. Calls the normal bootloader path |
 | `cfg notesin <0-3>` / `cfg trackch <track> <ch>` / `cfg save` | | Sets Config > MIDI "Notes in" (0 off, 1 USB, 2 jack, 3 both) and per-track in channels in RAM, as the menu would; `save` persists to EEPROM. For scripted tests |
+| `midilog <0\|1>` | `mi ...` lines | Every incoming note, CC and transport message from jack and USB, followed by what the firmware did with it (track and instrument, or why it was ignored). Clock is reported once per 96 pulses. `trackerdev.py midilog` streams it until Ctrl-C |
 | `reboot` | | |
 
 Every command ends with `ok` or `err <reason>`.

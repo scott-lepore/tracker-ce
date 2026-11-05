@@ -26,6 +26,23 @@ asserts `sizeof(strInstrument) == 372`, which a 64-bit build cannot satisfy.
 `make linux M32=0` compiles 64-bit for quick syntax checks only; it fails the
 layout asserts by design.
 
+### Prebuilt binary
+
+The release binary is 32-bit and was built on Ubuntu 24.04, so it needs glibc
+2.39 or newer and the 32-bit runtime libraries:
+
+    sudo dpkg --add-architecture i386
+    sudo apt update
+    sudo apt install libc6:i386 libstdc++6:i386 libx11-6:i386 \
+                     libasound2t64:i386 libasound2-plugins:i386
+
+On Debian 12 and other older releases the ALSA package is `libasound2:i386`;
+build from source there if glibc is older. `libasound2-plugins:i386` provides
+the PulseAudio plug-in that carries sound to PipeWire or PulseAudio.
+
+`--sd` must point at a copy of a Tracker card (the Workspace, Projects and
+Samples folders). The port writes to it, so use a copy, not the card itself.
+
 ## Run
 
     build/tracker-linux --sd ~/TrackerSD

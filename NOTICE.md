@@ -48,3 +48,8 @@ Polyend Tracker Community Edition (CE) incorporates or links against the followi
 * **Location**: `synth/lib/`
 * **License**: Polyend Precompiled Synthesizer & DSP Library License (`synth/lib/LICENSE-PROPRIETARY.txt`)
 * **Copyright**: Copyright (c) 2023-2026 Polyend Sp. z o.o. All rights reserved.
+
+## 10. stb_image
+* **Location**: `platforms/linux/source/eve/third_party/stb_image.h` (Linux host port only)
+* **License**: Public domain (Unlicense) or MIT License, at your choice
+* **Copyright**: Sean Barrett and contributors.
