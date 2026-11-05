@@ -62,6 +62,14 @@ CC_OPTIONS=
 
 # Build rules
 
+# Rebuild the file that embeds BUILD_ID whenever the build tag changes.
+BUILD_ID_STAMP := $(OBJ_DIR)build_id.$(BUILD_ID_STR)
+$(BUILD_ID_STAMP):
+	@mkdir -p $(dir $@)
+	@rm -f $(OBJ_DIR)build_id.*
+	@touch "$@"
+$(addprefix $(OBJ_DIR)/, source/PlatformImpl.o): $(BUILD_ID_STAMP)
+
 $(OBJ_DIR)/%.o: %.cpp
 	$(TOOLCHAIN)c++ -MMD -MP $(DEFINES) $(INCLUDES) $(CPP_OPTIONS) $(COMPILER_OPTIONS) -o "$@" "$<"
 
