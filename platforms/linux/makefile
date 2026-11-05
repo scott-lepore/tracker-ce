@@ -66,6 +66,14 @@ $(OBJ_DIR)/%.o: source/%.cpp
 	@mkdir -p $(dir $@)
 	$(CXX) $(DEFINES) $(INCLUDES) $(CXXFLAGS) -c -o "$@" "$<"
 
+# Rebuild the file that embeds BUILD_ID whenever the build tag changes.
+BUILD_ID_STAMP := $(OBJ_DIR)/build_id.$(BUILD_ID_STR)
+$(BUILD_ID_STAMP):
+	@mkdir -p $(dir $@)
+	@rm -f $(OBJ_DIR)/build_id.*
+	@touch "$@"
+$(OBJ_DIR)/PlatformImpl.o: $(BUILD_ID_STAMP)
+
 $(BUILD_DIR)/$(TARGET): $(OBJS) $(TRACKER_DIR)/build-LINUX-ORIGINAL/libTracker.a
 	$(CXX) $(LDFLAGS) -o "$@" $(OBJS) $(LIBS)
 
