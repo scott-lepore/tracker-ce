@@ -58,4 +58,4 @@ Polyend Tracker Community Edition (CE) incorporates or links against the followi
 * **Location**: `core/libs/mutable/` (Original Tracker and its Linux port; the Braids mod)
 * **License**: MIT License (`core/libs/mutable/LICENSE`)
 * **Copyright**: Copyright 2012 Emilie Gillet.
-* **Changes**: files renamed from `.cc` to `.cpp`; nine sample-rate-dependent lookup tables in `braids/resources.cpp` regenerated for 44117.647 Hz from the formulas in Braids' `resources/lookup_tables.py`.
+* **Changes**: files renamed from `.cc` to `.cpp`; nine sample-rate-dependent lookup tables in `braids/resources.cpp` regenerated for 44117.647 Hz from the formulas in Braids' `resources/lookup_tables.py`. `DigitalOscillator`'s delay lines are held through a pointer so they can live in external RAM.

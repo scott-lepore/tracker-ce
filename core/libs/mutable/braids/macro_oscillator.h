@@ -47,6 +47,11 @@ class MacroOscillator {
   MacroOscillator() { }
   ~MacroOscillator() { }
   
+  // Tracker CE: the digital models' delay lines, before Init().
+  inline void set_delay_lines(DigitalOscillatorDelayLines* delay_lines) {
+    digital_oscillator_.set_delay_lines(delay_lines);
+  }
+
   inline void Init() {
     analog_oscillator_[0].Init();
     analog_oscillator_[1].Init();

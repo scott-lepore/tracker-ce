@@ -39,21 +39,15 @@ constexpr size_t kRecordSize = 4;
 static_assert(sizeof(Settings) == kRecordSize);
 constexpr size_t kChunk = 16; // Braids renders at most 24 samples, an even number, at a time
 
-// About 17 KB each, mostly the delay lines of the physical models.
-#ifdef BRAIDS_EXP_INTERNAL0 // measurement build: voice 0 in internal RAM
-::braids::MacroOscillator oscillator0;
-__NOINIT(EXTERNAL_RAM)::braids::MacroOscillator oscillatorsExt[kVoiceCount - 1];
-::braids::MacroOscillator& oscillatorOf(int v)
-{
-    return v == 0 ? oscillator0 : oscillatorsExt[v - 1];
-}
-#else
-__NOINIT(EXTERNAL_RAM)::braids::MacroOscillator oscillators[kVoiceCount];
+// The oscillators (about 600 bytes each) in internal RAM, which roughly halves their cost;
+// their delay lines (16 KB each, used by the physical models) in external RAM.
+::braids::MacroOscillator oscillators[kVoiceCount];
+__NOINIT(EXTERNAL_RAM)::braids::DigitalOscillatorDelayLines delayLines[kVoiceCount];
+
 ::braids::MacroOscillator& oscillatorOf(int v)
 {
     return oscillators[v];
 }
-#endif
 
 // Load guard state: when each voice started and the last block it rendered in.
 uint32_t startOrder[kVoiceCount];
@@ -130,6 +124,7 @@ void init()
     for (int v = 0; v < kVoiceCount; v++)
     {
         ::braids::MacroOscillator& osc = oscillatorOf(v);
+        osc.set_delay_lines(&delayLines[v]);
         osc.Init();
         osc.set_shape(::braids::MACRO_OSC_SHAPE_CSAW);
         osc.set_parameters(parameter(64), parameter(64));

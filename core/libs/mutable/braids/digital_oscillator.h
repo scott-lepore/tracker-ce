@@ -236,6 +236,22 @@ union DigitalOscillatorState {
   uint32_t modulator_phase;
 };
 
+// Tracker CE: the delay lines live outside the oscillator (external RAM), so the
+// rest of its state can sit in fast internal RAM. set_delay_lines() before Init().
+union DigitalOscillatorDelayLines {
+  int16_t comb[kCombDelayLength];
+  int16_t ks[1025 * 4];
+  struct {
+    int8_t bridge[kWGBridgeLength];
+    int8_t neck[kWGNeckLength];
+  } bowed;
+  int16_t bore[kWGBoreLength];
+  struct {
+    int8_t jet[kWGJetLength];
+    int8_t bore[kWGFBoreLength];
+  } fluted;
+};
+
 class DigitalOscillator {
  public:
   typedef void (DigitalOscillator::*RenderFn)(const uint8_t*, int16_t*, size_t);
@@ -243,6 +259,10 @@ class DigitalOscillator {
   DigitalOscillator() { }
   ~DigitalOscillator() { }
   
+  inline void set_delay_lines(DigitalOscillatorDelayLines* delay_lines) {
+    delay_lines_ = delay_lines;
+  }
+
   inline void Init() {
     memset(&state_, 0, sizeof(state_));
     pulse_[0].Init();
@@ -359,19 +379,7 @@ class DigitalOscillator {
   Excitation pulse_[4];
   Svf svf_[3];
   
-  union {
-    int16_t comb[kCombDelayLength];
-    int16_t ks[1025 * 4];
-    struct {
-      int8_t bridge[kWGBridgeLength];
-      int8_t neck[kWGNeckLength];
-    } bowed;
-    int16_t bore[kWGBoreLength];
-    struct {
-      int8_t jet[kWGJetLength];
-      int8_t bore[kWGFBoreLength];
-    } fluted;
-  } delay_lines_;
+  DigitalOscillatorDelayLines* delay_lines_;  // Tracker CE: kept outside, see above
   
   static RenderFn fn_table_[];
   
