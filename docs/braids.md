@@ -42,6 +42,10 @@ Tracker note 60 (shown as C5) is MIDI middle C, 261.6 Hz.
 | Internal RAM (static) | 139,812 B | 145,704 B |
 | External RAM | 15,606,432 B | 15,737,504 B |
 
+To make room, the Original build (flag `MT_TRIM_ORIGINAL`, also the Linux port) no longer
+has the factory test mode or .it/.mod import and .it export (24 KB), and uses a plain C++
+terminate handler instead of the verbose one (32 KB). Flash is then 946,824 B (90.3 %).
+
 Audio load, measured on the device (`prof reset`, then `stat` over 1.2 s per step), all
 tracks stopped: 46 % idle. Each Braids voice adds 1.5 % (Clocked Noise) to 8 % (Triple
 Square). A sample voice adds about 0.3 %. Voices that fit under 80 % load:

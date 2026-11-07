@@ -264,7 +264,9 @@ void cProjectEditor::setDefaultScreenFunct()
 
     ip->setButtonObj(interfaceButton0, buttonPress, functNewProject);
     ip->setButtonObj(interfaceButton1, buttonPress, functOpenProject);
+#if !defined(MT_TRIM_ORIGINAL) // MT:
     ip->setButtonObj(interfaceButton2, buttonPress, functImportMod);
+#endif
     ip->setButtonObj(interfaceButton3, buttonPress, functSaveProject);
     ip->setButtonObj(interfaceButton4, buttonPress, functSaveAsProject);
     ip->setButtonObj(interfaceButton5, buttonPress, functExport);
@@ -292,7 +294,9 @@ void cProjectEditor::setExportWindowFuncts()
     PE->ip->setButtonObj(interfaceButton1, buttonPress, functExportSongStems);
     PE->ip->setButtonObj(interfaceButton2, buttonPress, functExportPattern);
     PE->ip->setButtonObj(interfaceButton3, buttonPress, functExportPatternStems);
+#if !defined(MT_TRIM_ORIGINAL) // MT:
     PE->ip->setButtonObj(interfaceButton4, buttonPress, functExportToMOD);
+#endif
     PE->ip->setButtonObj(interfaceButton5, buttonPress, functExportSamples);
 
     PE->ip->setButtonObj(interfaceButton7, buttonPress, functExportGoBack);

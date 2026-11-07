@@ -112,6 +112,7 @@ void Interface::begin(Platform* platform, Synth* synth)
     ModuleBase::setTitleBar(&titleBar);
     ModuleBase::setSynth(synth);
 
+#if !defined(MT_TRIM_ORIGINAL) // MT:
     mtTest.setCodecAudio(platform->getCodecAudio());
     mtTest.setRadio(platform->getRadio());
     mtTest.setButtons(platform->getButtons());
@@ -119,6 +120,7 @@ void Interface::begin(Platform* platform, Synth* synth)
     mtTest.setTimer(platform->getTimer());
     mtTest.setBattery(platform->getBattery());
     mtTest.setFileSystem(platform->getFileSystem());
+#endif
 
     ip->unblockAllInputs();
 }
@@ -135,7 +137,9 @@ void Interface::update()
 
     mtPopups.update();
 
+#if !defined(MT_TRIM_ORIGINAL) // MT:
     mtTest.testLoop();
+#endif
 
     commonThingsUpdate();
 }
@@ -614,7 +618,9 @@ void interfaceEnvents(uint8_t event, void* param1, void* param2, void* param3)
         case eventActivateTestingProcedure:
         {
             mtInterface.deactivateModule((hModule)param1);
+#if !defined(MT_TRIM_ORIGINAL) // MT:
             mtTest.runTestingProcedure(mtInterface.ip);
+#endif
             break;
         }
         case eventSetFileTransferMode:

@@ -15,6 +15,7 @@
 #include "NewDisplay/display.h"
 #include "braidsosc.h"
 #include "mtAudioEngine.h"
+#include "ThemeManager.h"
 
 #include <cstdarg>
 #include <cstdio>
@@ -145,6 +146,17 @@ void sendStat(const char* tag)
 void cmdStat()
 {
     sendStat("stat");
+    ok();
+}
+
+// fonts: the display fonts the firmware offers, the current one marked with *.
+void cmdFonts()
+{
+    const char* const* names = ThemeManager::getFontNames();
+    for (uint8_t i = 0; i < ThemeManager::getFontCount(); i++)
+    {
+        sendf("font %c%d %s\n", i == ThemeManager::getCurrentFontIndex() ? '*' : ' ', i, names[i]);
+    }
     ok();
 }
 
@@ -710,7 +722,7 @@ void cmdHelp()
 {
     send("commands: ping stat mon <ms> tracks midi <ch> <note> <vel> [j] key <idx> <p|r|h> "
          "pad <0-47> <p|r|h> jog <delta> exists <path> rm <path> put <path> <size> get <path> "
-         "flash <file> cfg notesin|trackch|save shot <path> eeprom <off> <len> snap events <0|1> controller <0|1> midilog <0|1> prof reset voice <tr> <instr> <note> <vel> mute <tr> <0|1> braids <slot> <model> <timbre> <color> reboot help\n");
+         "flash <file> cfg notesin|trackch|save shot <path> eeprom <off> <len> snap events <0|1> controller <0|1> midilog <0|1> prof reset fonts voice <tr> <instr> <note> <vel> mute <tr> <0|1> braids <slot> <model> <timbre> <color> reboot help\n");
     ok();
 }
 
@@ -732,6 +744,7 @@ void execute(char* text)
     else if (!strcmp(c, "tracks")) cmdTracks();
     else if (!strcmp(c, "cfg")) cmdCfg(argc, argv);
     else if (!strcmp(c, "prof")) cmdProf(argc, argv);
+    else if (!strcmp(c, "fonts")) cmdFonts();
     else if (!strcmp(c, "voice")) cmdVoice(argc, argv);
     else if (!strcmp(c, "mute")) cmdMute(argc, argv);
 #if MT_HAS_BRAIDS

@@ -452,10 +452,12 @@ static void functActionButton(uint8_t button, uint8_t state)
             default: break;
         }
 
+#if !defined(MT_TRIM_ORIGINAL) // MT:
         if (mtTest.runTestByMiniCombinaion(button))
         {
             CE->eventFunct(eventActivateTestingProcedure, CE, 0, 0);
         }
+#endif
     }
     else if (state == buttonRelease)
     {
@@ -478,10 +480,12 @@ static void functPads(uint8_t pad, uint8_t state, int16_t)
         return;
     }
 
+#if !defined(MT_TRIM_ORIGINAL) // MT:
     if (mtTest.runTestByCombinaion(pad))
     {
         CE->eventFunct(eventActivateTestingProcedure, CE, 0, 0);
     }
+#endif
 }
 
 static void functEncoder(int16_t value)

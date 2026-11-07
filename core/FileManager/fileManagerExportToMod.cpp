@@ -10,6 +10,8 @@
 
 #include <cstring>
 
+#if !defined(MT_TRIM_ORIGINAL) // MT: not in the Original build
+
 /*
  * https://github.com/schismtracker/schismtracker/wiki/ITTECH.TXT
  */
@@ -1614,3 +1616,9 @@ uint8_t cFileManager::exportItFile_getProgress()
     retVal = clamp(retVal, 0.0f, 100.0f);
     return (uint8_t)retVal;
 }
+#else
+// Export to .it is not in this build.
+void cFileManager::updateExportModFile() {}
+uint8_t cFileManager::exportItFile() { return 0; }
+uint8_t cFileManager::exportItFile_getProgress() { return 0; }
+#endif

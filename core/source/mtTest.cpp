@@ -11,6 +11,7 @@
 
 #include "Platform.h"
 
+#if !defined(MT_TRIM_ORIGINAL) // MT: no factory test in the Original build
 cTest mtTest;
 static cTest* TP = &mtTest;
 
@@ -1562,3 +1563,4 @@ static void functPowerButton(uint8_t state)
     else if (state == buttonRelease && TP->inputs.powerButton == 1)
         TP->inputs.powerButton = 2;
 }
+#endif

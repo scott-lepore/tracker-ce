@@ -87,6 +87,8 @@ endif
 ifeq ($(PRODUCT), MINI)
 DEFINES+=-DTRACKER_MINI
 else ifeq ($(PRODUCT), ORIGINAL)
+# MT: features removed from the Original build to free flash (factory test, .it/.mod import and export)
+DEFINES+=-DMT_TRIM_ORIGINAL
 else ifeq ($(PRODUCT), PLUS)
 else 
 $(error Invalid PRODUCT value $(PRODUCT))

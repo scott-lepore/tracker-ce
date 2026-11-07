@@ -139,7 +139,11 @@ void cProjectEditor::showDefaultScreen()
 
     display.setControlText(label[0], "New");
     display.setControlText(label[1], "Open");
+#if !defined(MT_TRIM_ORIGINAL) // MT:
     display.setControlText(label[2], "Import Mod");
+#else
+    display.setControlText(label[2], "");
+#endif
     display.setControlText(label[3], "Save");
     display.setControlText(label[4], "Save As");
     display.setControlText(label[5], "Export");
@@ -684,8 +688,13 @@ void cProjectEditor::showExportWindow()
     display.setControlText2(label[2], "Pattern");
     display.setControlText(label[3], "Export");
     display.setControlText2(label[3], "Patt Stems");
+#if !defined(MT_TRIM_ORIGINAL) // MT:
     display.setControlText(label[4], "Export");
     display.setControlText2(label[4], "As .it");
+#else
+    display.setControlText(label[4], "");
+    display.setControlText2(label[4], "");
+#endif
     display.setControlText(label[5], "Export");
     display.setControlText2(label[5], "Samples");
     display.setControlText(label[6], "");

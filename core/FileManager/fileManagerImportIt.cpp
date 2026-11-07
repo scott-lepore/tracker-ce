@@ -10,6 +10,8 @@
 #include <cstring>
 #include <math.h>
 
+#if !defined(MT_TRIM_ORIGINAL) // MT: not in the Original build
+
 #define DEBUGMOD 0
 
 extern Sequencer::strPattern fileManagerPatternBuffer;
@@ -1157,3 +1159,5 @@ float cFileManager::importItFile_getProgress()
     retVal = clamp<float>(retVal, 0.0, 100.0);
     return retVal;
 }
+#else
+#endif

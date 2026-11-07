@@ -9,6 +9,8 @@
 #include <cctype>
 #include <cstring>
 
+#if !defined(MT_TRIM_ORIGINAL) // MT: not in the Original build
+
 extern Sequencer::strPattern fileManagerPatternBuffer;
 int16_t* modFile_sample_ptr;
 uint32_t byteSampleOffset = 0;
@@ -835,3 +837,8 @@ void cFileManager::printNote(uint8_t note)
 
     LOGF("%d", note / 12);
 }
+#else
+// Import of .mod and .it is not in this build.
+void cFileManager::updateImportModFile() {}
+float cFileManager::importMod_getProgress() { return 0.0f; }
+#endif
