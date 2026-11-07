@@ -148,6 +148,19 @@ void cmdStat()
     ok();
 }
 
+// prof reset: restart the audio load statistics, so the next stat covers only what
+// happened since (min/avg/max are otherwise since boot).
+void cmdProf(int argc, char** argv)
+{
+    if (argc < 2 || strcmp(argv[1], "reset") != 0)
+    {
+        err("usage: prof reset");
+        return;
+    }
+    Profiler::getInstance()->resetMeasuringAudio();
+    ok();
+}
+
 void cmdTracks()
 {
     for (uint8_t tr = 0; tr < kSampleTracks; tr++)
@@ -697,7 +710,7 @@ void cmdHelp()
 {
     send("commands: ping stat mon <ms> tracks midi <ch> <note> <vel> [j] key <idx> <p|r|h> "
          "pad <0-47> <p|r|h> jog <delta> exists <path> rm <path> put <path> <size> get <path> "
-         "flash <file> cfg notesin|trackch|save shot <path> eeprom <off> <len> snap events <0|1> controller <0|1> midilog <0|1> voice <tr> <instr> <note> <vel> mute <tr> <0|1> braids <slot> <model> <timbre> <color> reboot help\n");
+         "flash <file> cfg notesin|trackch|save shot <path> eeprom <off> <len> snap events <0|1> controller <0|1> midilog <0|1> prof reset voice <tr> <instr> <note> <vel> mute <tr> <0|1> braids <slot> <model> <timbre> <color> reboot help\n");
     ok();
 }
 
@@ -718,6 +731,7 @@ void execute(char* text)
     else if (!strcmp(c, "stat")) cmdStat();
     else if (!strcmp(c, "tracks")) cmdTracks();
     else if (!strcmp(c, "cfg")) cmdCfg(argc, argv);
+    else if (!strcmp(c, "prof")) cmdProf(argc, argv);
     else if (!strcmp(c, "voice")) cmdVoice(argc, argv);
     else if (!strcmp(c, "mute")) cmdMute(argc, argv);
 #if MT_HAS_BRAIDS
