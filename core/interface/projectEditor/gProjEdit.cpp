@@ -139,14 +139,17 @@ void cProjectEditor::showDefaultScreen()
 
     display.setControlText(label[0], "New");
     display.setControlText(label[1], "Open");
-#if !defined(MT_TRIM_ORIGINAL) // MT:
+#if !defined(MT_TRIM_ORIGINAL) // MT: no Import Mod; the buttons after it move left
     display.setControlText(label[2], "Import Mod");
-#else
-    display.setControlText(label[2], "");
-#endif
     display.setControlText(label[3], "Save");
     display.setControlText(label[4], "Save As");
     display.setControlText(label[5], "Export");
+#else
+    display.setControlText(label[2], "Save");
+    display.setControlText(label[3], "Save As");
+    display.setControlText(label[4], "Export");
+    display.setControlText(label[5], "");
+#endif
     display.setControlText(label[6], "");
     display.setControlText(label[7], "");
 
@@ -688,15 +691,17 @@ void cProjectEditor::showExportWindow()
     display.setControlText2(label[2], "Pattern");
     display.setControlText(label[3], "Export");
     display.setControlText2(label[3], "Patt Stems");
-#if !defined(MT_TRIM_ORIGINAL) // MT:
+#if !defined(MT_TRIM_ORIGINAL) // MT: no Export As .it; Export Samples moves left
     display.setControlText(label[4], "Export");
     display.setControlText2(label[4], "As .it");
-#else
-    display.setControlText(label[4], "");
-    display.setControlText2(label[4], "");
-#endif
     display.setControlText(label[5], "Export");
     display.setControlText2(label[5], "Samples");
+#else
+    display.setControlText(label[4], "Export");
+    display.setControlText2(label[4], "Samples");
+    display.setControlText(label[5], "");
+    display.setControlText2(label[5], "");
+#endif
     display.setControlText(label[6], "");
     display.setControlText(label[7], "Back");
 
