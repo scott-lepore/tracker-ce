@@ -269,7 +269,13 @@ AUDIO_CORE_RAM audio_block_t* AudioPlayMemory::updateBraids()
 
     // notes[60] is 1.0 times the clock correction; Braids' tables are already at the
     // Tracker's real rate, so take the correction out.
-    mods::braidsosc::render(voiceIndex, pitchControl / notes[60], block->data, AUDIO_BLOCK_SAMPLES);
+    if (!mods::braidsosc::render(voiceIndex, pitchControl / notes[60], block->data, AUDIO_BLOCK_SAMPLES))
+    {
+        // Load guard: this voice stops.
+        release(block);
+        envelopeSetIdle();
+        return nullptr;
+    }
     return block;
 }
 #endif

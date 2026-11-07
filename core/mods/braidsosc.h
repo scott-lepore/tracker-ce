@@ -51,8 +51,13 @@ bool plays(uint8_t instrIdx);
 // Audio engine side, called with audio interrupts off or from the audio interrupt.
 // pitchRatio is the playback ratio relative to note 60 (C5 on the Tracker), with
 // tune, fine tune and glide applied and without the clock correction.
+// render returns false when the voice must stop instead (load guard, below).
 void noteOn(int8_t voice);
-void render(int8_t voice, float pitchRatio, int16_t* out, size_t size);
+bool render(int8_t voice, float pitchRatio, int16_t* out, size_t size);
+
+// Load guard: when the last audio block took kGuardPercent or more of its time, the most
+// recently started Braids voice stops, so too many voices can't lock the unit up.
+constexpr int kGuardPercent = 90;
 
 } // namespace braidsosc
 } // namespace mods

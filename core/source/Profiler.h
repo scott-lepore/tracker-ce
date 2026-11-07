@@ -37,6 +37,11 @@ class Profiler
     void stopMeasuringAudio();
     void resetMeasuringAudio();
 
+    // For guards in the audio interrupt: the last block's load in percent, and a count of
+    // measured blocks that resetMeasuringAudio leaves alone.
+    int lastAudioLoadPercent() const { return (100 * lastSampleUs) / kMaxAudioUpdateTime; }
+    uint32_t audioBlockCount() const { return blockCount; }
+
   private:
     static constexpr uint8_t kStackWatermark =
       0xAA; // this value should match the same value from initial code;
@@ -52,6 +57,7 @@ class Profiler
     int minSampleUs;
     int maxSampleUs;
     int tempMaxSampleUs;
+    uint32_t blockCount = 0;
 };
 
 #endif /* SOURCE_PROFILER_H_ */

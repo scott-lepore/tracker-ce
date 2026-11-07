@@ -140,6 +140,7 @@ void Profiler::stopMeasuringAudio()
 
     sumOfSamples += lastSampleUs;
     samples++;
+    blockCount++;
 }
 
 void Profiler::getAudioProcessingUsageUs(AudioProcessorUsage& usage, bool resetTempMaximum)

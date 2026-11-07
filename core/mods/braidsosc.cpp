@@ -5,6 +5,8 @@
 
 #include "braids/macro_oscillator.h"
 
+#include "Profiler.h"
+
 #include <cmath>
 #include <cr_section_macros.h>
 #include <cstring>
@@ -38,7 +40,44 @@ static_assert(sizeof(Settings) == kRecordSize);
 constexpr size_t kChunk = 16; // Braids renders at most 24 samples, an even number, at a time
 
 // About 17 KB each, mostly the delay lines of the physical models.
+#ifdef BRAIDS_EXP_INTERNAL0 // measurement build: voice 0 in internal RAM
+::braids::MacroOscillator oscillator0;
+__NOINIT(EXTERNAL_RAM)::braids::MacroOscillator oscillatorsExt[kVoiceCount - 1];
+::braids::MacroOscillator& oscillatorOf(int v)
+{
+    return v == 0 ? oscillator0 : oscillatorsExt[v - 1];
+}
+#else
 __NOINIT(EXTERNAL_RAM)::braids::MacroOscillator oscillators[kVoiceCount];
+::braids::MacroOscillator& oscillatorOf(int v)
+{
+    return oscillators[v];
+}
+#endif
+
+// Load guard state: when each voice started and the last block it rendered in.
+uint32_t startOrder[kVoiceCount];
+uint32_t lastBlock[kVoiceCount];
+uint32_t starts;
+
+// Whether voice should stop now: the last block overran the guard and this is the most
+// recently started of the voices still sounding.
+bool guardStops(int8_t voice, uint32_t block)
+{
+    if (Profiler::getInstance()->lastAudioLoadPercent() < kGuardPercent)
+    {
+        return false;
+    }
+    int youngest = -1;
+    for (int v = 0; v < kVoiceCount; v++)
+    {
+        if (block - lastBlock[v] <= 1 && (youngest < 0 || startOrder[v] > startOrder[youngest]))
+        {
+            youngest = v;
+        }
+    }
+    return youngest == voice;
+}
 
 bool valid(const Settings& s)
 {
@@ -88,8 +127,9 @@ bool storeIfEdited(Store& store)
 
 void init()
 {
-    for (auto& osc : oscillators)
+    for (int v = 0; v < kVoiceCount; v++)
     {
+        ::braids::MacroOscillator& osc = oscillatorOf(v);
         osc.Init();
         osc.set_shape(::braids::MACRO_OSC_SHAPE_CSAW);
         osc.set_parameters(parameter(64), parameter(64));
@@ -108,18 +148,28 @@ void noteOn(int8_t voice)
     {
         return;
     }
-    oscillators[voice].Strike();
+    oscillatorOf(voice).Strike();
+    startOrder[voice] = ++starts;
+    lastBlock[voice] = Profiler::getInstance()->audioBlockCount(); // sounding from now on
 }
 
-void render(int8_t voice, float pitchRatio, int16_t* out, size_t size)
+bool render(int8_t voice, float pitchRatio, int16_t* out, size_t size)
 {
     if (voice < 0 || voice >= kVoiceCount || pitchRatio <= 0.0f)
     {
         memset(out, 0, size * sizeof(int16_t));
-        return;
+        return true;
     }
 
-    ::braids::MacroOscillator& osc = oscillators[voice];
+    const uint32_t block = Profiler::getInstance()->audioBlockCount();
+    lastBlock[voice] = block;
+    if (guardStops(voice, block))
+    {
+        lastBlock[voice] = block - 2; // no longer sounding
+        return false;
+    }
+
+    ::braids::MacroOscillator& osc = oscillatorOf(voice);
     osc.set_shape(static_cast<::braids::MacroOscillatorShape>(
       settings.model < kModelCount ? settings.model : 0));
     osc.set_parameters(parameter(settings.timbre), parameter(settings.color));
@@ -141,6 +191,7 @@ void render(int8_t voice, float pitchRatio, int16_t* out, size_t size)
     {
         osc.Render(noSync, out + i, kChunk);
     }
+    return true;
 }
 
 } // namespace braidsosc
