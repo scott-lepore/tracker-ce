@@ -2,13 +2,18 @@
 #include "mtAudioEngine.h"
 #include "mtSequencer.h"
 #include "polyassert.h"
+#include "braidsosc.h" // MT:
 
 using namespace mtAudioEngineConstans;
 
 //********************************** NOTE_ON
 uint8_t playerEngine ::noteOn(uint8_t instr_idx, int8_t note, int8_t _velocity)
 {
+#if MT_HAS_BRAIDS // MT: a Braids slot plays with or without a sample
+    if (mtProject.instrument[instr_idx].isActive != 1 && !mods::braidsosc::plays(instr_idx))
+#else
     if (mtProject.instrument[instr_idx].isActive != 1)
+#endif
         return 0;
     if (isBlockedNoteOn[instr_idx])
         return 0;
@@ -81,7 +86,11 @@ AUDIO_CORE_RAM uint8_t playerEngine ::noteOn(uint8_t instr_idx,
                                              uint8_t fx2_id,
                                              uint8_t fx2_val)
 {
+#if MT_HAS_BRAIDS // MT: a Braids slot plays with or without a sample
+    if (mtProject.instrument[instr_idx].isActive != 1 && !mods::braidsosc::plays(instr_idx))
+#else
     if (mtProject.instrument[instr_idx].isActive != 1)
+#endif
         return 0;
     if (isBlockedNoteOn[instr_idx])
         return 0;

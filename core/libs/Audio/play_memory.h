@@ -31,6 +31,7 @@
 #include "VoiceStreamManager.h"
 #include "amplifier.h"
 #include "mtStructs.h"
+#include "modsBuild.h" // MT:
 
 class Timer;
 
@@ -240,6 +241,10 @@ class AudioPlayMemory : public AudioStream
     void playBeatSlice(uint8_t instrIdx, int8_t note);
     void playGranular(uint8_t instrIdx, int8_t note);
     void playWavetable(uint8_t instrIdx, int8_t note);
+#if MT_HAS_BRAIDS // MT: a Braids instrument slot
+    static constexpr uint8_t kPlayModeBraids = 0x7F; // engine-only, never stored
+    void playBraids(uint8_t instrIdx, int8_t note);
+#endif
     // UPDATE OBSLUGA OGÓLNA
 
     // UPDATE Z PODZIALEM NA TRYBY
@@ -251,6 +256,9 @@ class AudioPlayMemory : public AudioStream
     audio_block_t* updateBeatSlice();
     audio_block_t* updateGranular();
     audio_block_t* updateWavetable();
+#if MT_HAS_BRAIDS // MT:
+    audio_block_t* updateBraids();
+#endif
 
     // singleShot
     audio_block_t* updateSingleShotNormal();

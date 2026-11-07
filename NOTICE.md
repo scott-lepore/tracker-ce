@@ -53,3 +53,9 @@ Polyend Tracker Community Edition (CE) incorporates or links against the followi
 * **Location**: `platforms/linux/source/eve/third_party/stb_image.h` (Linux host port only)
 * **License**: Public domain (Unlicense) or MIT License, at your choice
 * **Copyright**: Sean Barrett and contributors.
+
+## 11. Mutable Instruments Braids and stmlib
+* **Location**: `core/libs/mutable/` (Original Tracker and its Linux port; the Braids mod)
+* **License**: MIT License (`core/libs/mutable/LICENSE`)
+* **Copyright**: Copyright 2012 Emilie Gillet.
+* **Changes**: files renamed from `.cc` to `.cpp`; nine sample-rate-dependent lookup tables in `braids/resources.cpp` regenerated for 44117.647 Hz from the formulas in Braids' `resources/lookup_tables.py`.

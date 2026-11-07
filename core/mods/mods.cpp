@@ -15,6 +15,7 @@
 #include "modsProject.h"
 #include "modsSwitches.h"
 #include "swing.h"
+#include "braidsosc.h"
 
 #include "Platform.h"
 #include "fileManager.h"
@@ -138,6 +139,9 @@ void init(FileSystem* fileSystem)
 #if MT_HAS_COLORSONG
     colorsong::init();
 #endif
+#if MT_HAS_BRAIDS
+    braidsosc::init();
+#endif
     project::setChangedCallback(markProjectChanged);
     config::load(fileIo, configStore, defaults.data(), kModCount);
 }
@@ -191,6 +195,12 @@ void projectSettingEdited()
         swing::amountEdited();
     }
 #endif
+#if MT_HAS_BRAIDS
+    if (braidsosc::storeIfEdited(projectStore))
+    {
+        project::markChanged();
+    }
+#endif
 }
 
 void onProjectOpenCopy()
@@ -219,6 +229,9 @@ void onWorkspaceLoaded()
 #endif
 #if MT_HAS_SWING
     swing::load(projectStore);
+#endif
+#if MT_HAS_BRAIDS
+    braidsosc::load(projectStore);
 #endif
 #if MT_HAS_COLORSONG
     colorsong::reset();

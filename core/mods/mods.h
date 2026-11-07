@@ -38,6 +38,7 @@ enum class Mod : uint8_t
     tracklen = 12,
     songloop = 13,
     chords = 14, // retired: CE has these chords; the id stays unused
+    braids = 15, // Braids voices (Original Tracker)
     kCount
 };
 
@@ -52,6 +53,9 @@ constexpr size_t kBuiltModCount = 0
                                   + 1
 #endif
 #if MT_HAS_SWING
+                                  + 1
+#endif
+#if MT_HAS_BRAIDS
                                   + 1
 #endif
   ;

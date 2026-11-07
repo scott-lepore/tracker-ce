@@ -13,6 +13,8 @@
 #include "mtStructs.h"
 #include "mtConfig.h"
 #include "NewDisplay/display.h"
+#include "braidsosc.h"
+#include "mtAudioEngine.h"
 
 #include <cstdarg>
 #include <cstdio>
@@ -477,6 +479,73 @@ void cmdReboot()
 
 // cfg notesin <0-3> | cfg trackch <track 1-8> <ch 0-16> | cfg save
 // Sets the in-RAM config the way the Config screen would; `save` persists it.
+#if MT_HAS_BRAIDS
+// braids <slot 0-48> <model 0-47> <timbre 0-127> <color 0-127>: sets the project's Braids
+// settings and turns the mod on (slot 0 turns it off), as the Config menu would.
+void cmdBraids(int argc, char** argv)
+{
+    if (argc < 5)
+    {
+        sendf("braids on=%d slot=%d model=%d (%s) timbre=%d color=%d\n",
+              mods::on(mods::Mod::braids) ? 1 : 0,
+              mods::braidsosc::settings.instrument,
+              mods::braidsosc::settings.model,
+              mods::braidsosc::kModelNames[mods::braidsosc::settings.model],
+              mods::braidsosc::settings.timbre,
+              mods::braidsosc::settings.color);
+        ok();
+        return;
+    }
+    int slot = atoi(argv[1]), model = atoi(argv[2]), timbre = atoi(argv[3]), color = atoi(argv[4]);
+    if (slot < 0 || slot > 48 || model < 0 || model >= mods::braidsosc::kModelCount || timbre < 0 ||
+        timbre > mods::braidsosc::kParameterMax || color < 0 || color > mods::braidsosc::kParameterMax)
+    {
+        err("range: slot 0-48 model 0-47 timbre 0-127 color 0-127");
+        return;
+    }
+    mods::braidsosc::settings.instrument = (uint8_t)slot;
+    mods::braidsosc::settings.model = (uint8_t)model;
+    mods::braidsosc::settings.timbre = (uint8_t)timbre;
+    mods::braidsosc::settings.color = (uint8_t)color;
+    mods::switches[static_cast<size_t>(mods::Mod::braids)] = slot != 0 ? 1 : 0;
+    mods::projectSwitchChanged();
+    mods::projectSettingEdited();
+    ok();
+}
+#endif
+
+// voice <track 1-8> <instr 1-48> <note 0-119> <vel 0-127>: plays a note straight on a
+// track's voice, for audio tests (vel 0 releases it).
+void cmdVoice(int argc, char** argv)
+{
+    int tr = argc >= 5 ? atoi(argv[1]) : 0, instr = argc >= 5 ? atoi(argv[2]) : 0;
+    int note = argc >= 5 ? atoi(argv[3]) : -1, vel = argc >= 5 ? atoi(argv[4]) : -1;
+    if (tr < 1 || tr > 8 || instr < 1 || instr > 48 || note < 0 || note >= MAX_NOTE || vel < 0 || vel > 127)
+    {
+        err("usage: voice <track 1-8> <instr 1-48> <note 0-119> <vel 0-127>");
+        return;
+    }
+    if (vel == 0)
+        instrumentPlayer[tr - 1].noteOff();
+    else
+        instrumentPlayer[tr - 1].noteOn((uint8_t)(instr - 1), (int8_t)note, (int8_t)vel);
+    ok();
+}
+
+// mute <track 1-8> <0|1>
+void cmdMute(int argc, char** argv)
+{
+    int tr = argc >= 3 ? atoi(argv[1]) : 0;
+    if (tr < 1 || tr > 8)
+    {
+        err("usage: mute <track 1-8> <0|1>");
+        return;
+    }
+    mtProject.values.trackMute[tr - 1] = atoi(argv[2]) != 0;
+    engine.muteTrack((uint8_t)(tr - 1), mtProject.values.trackMute[tr - 1]);
+    ok();
+}
+
 void cmdCfg(int argc, char** argv)
 {
     if (argc >= 3 && !strcmp(argv[1], "notesin"))
@@ -628,7 +697,7 @@ void cmdHelp()
 {
     send("commands: ping stat mon <ms> tracks midi <ch> <note> <vel> [j] key <idx> <p|r|h> "
          "pad <0-47> <p|r|h> jog <delta> exists <path> rm <path> put <path> <size> get <path> "
-         "flash <file> cfg notesin|trackch|save shot <path> eeprom <off> <len> snap events <0|1> controller <0|1> midilog <0|1> reboot help\n");
+         "flash <file> cfg notesin|trackch|save shot <path> eeprom <off> <len> snap events <0|1> controller <0|1> midilog <0|1> voice <tr> <instr> <note> <vel> mute <tr> <0|1> braids <slot> <model> <timbre> <color> reboot help\n");
     ok();
 }
 
@@ -649,6 +718,11 @@ void execute(char* text)
     else if (!strcmp(c, "stat")) cmdStat();
     else if (!strcmp(c, "tracks")) cmdTracks();
     else if (!strcmp(c, "cfg")) cmdCfg(argc, argv);
+    else if (!strcmp(c, "voice")) cmdVoice(argc, argv);
+    else if (!strcmp(c, "mute")) cmdMute(argc, argv);
+#if MT_HAS_BRAIDS
+    else if (!strcmp(c, "braids")) cmdBraids(argc, argv);
+#endif
     else if (!strcmp(c, "midi")) cmdMidi(argc, argv);
     else if (!strcmp(c, "key")) cmdKey(argc, argv, false);
     else if (!strcmp(c, "pad")) cmdKey(argc, argv, true);

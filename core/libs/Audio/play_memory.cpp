@@ -5,6 +5,9 @@
 #include "mtAudioEngine.h"
 #include "util_math.h"
 #include <cr_section_macros.h>
+#if MT_HAS_BRAIDS
+#include "braidsosc.h" // MT:
+#endif
 
 float AudioPlayMemory::notes[NOTE_LOOKUP_SIZE];
 float AudioPlayMemory::wt32Note[NOTE_LOOKUP_SIZE];
@@ -149,6 +152,9 @@ AUDIO_CORE_RAM void AudioPlayMemory::update(void)
         case playModeBeatSlice: block = updateBeatSlice(); break;
         case playModeGranular: block = updateGranular(); break;
         case playModeWavetable: block = updateWavetable(); break;
+#if MT_HAS_BRAIDS // MT:
+        case kPlayModeBraids: block = updateBraids(); break;
+#endif
         default: break;
     }
 
@@ -185,6 +191,11 @@ void AudioPlayMemory::init(Timer* timer, int channel, int voiceIdx)
 //**************************************************************************************PLAY
 AUDIO_CORE_FLASH uint8_t AudioPlayMemory::play(uint8_t instrIdx, int8_t note)
 {
+#if MT_HAS_BRAIDS // MT: the project's Braids slot plays the oscillator instead of its sample
+    if (mods::braidsosc::plays(instrIdx))
+        playBraids(instrIdx, note);
+    else
+#endif
     switch (mtProject.instrument[instrIdx].playMode)
     {
         case playModeSingleShot: playSingleShot(instrIdx, note); break;
@@ -206,6 +217,62 @@ AUDIO_CORE_FLASH uint8_t AudioPlayMemory::play(uint8_t instrIdx, int8_t note)
 
     return 1;
 }
+
+#if MT_HAS_BRAIDS // MT:
+AUDIO_CORE_FLASH void AudioPlayMemory::playBraids(uint8_t instrIdx, int8_t note)
+{
+    AudioNoInterrupts();
+
+    if (note > MAX_NOTE - 1)
+        note = MAX_NOTE - 1;
+
+    lastInstrIdxInPlay = currentInstrIdxInPlay;
+    currentInstrIdxInPlay = instrIdx;
+    currentInstrIdx = instrIdx;
+
+    refreshStartParameters();
+    currentPlayMode = kPlayModeBraids; // the pitch helpers then use notes[]
+    currentIsStreamed = false;
+
+    constrainCurrentTune(note);
+    setStartPitch(note);
+    applyFinetuneOnPitch(note);
+    calculateGlidePitch(note);
+    lastNote = note;
+
+    mods::braidsosc::noteOn(voiceIndex);
+    playing = 1;
+
+    AudioInterrupts();
+}
+
+AUDIO_CORE_RAM audio_block_t* AudioPlayMemory::updateBraids()
+{
+    audio_block_t* block = allocate();
+    if (!block)
+        return nullptr;
+
+    // Glide: the same per-sample ramp the sample modes use, applied per block.
+    if (constrainsInSamples.pitchSmoothing &&
+        pitchSmoothingControlCounter <= constrainsInSamples.pitchSmoothing)
+    {
+        uint32_t steps = constrainsInSamples.pitchSmoothing - pitchSmoothingControlCounter + 1;
+        if (steps > AUDIO_BLOCK_SAMPLES)
+            steps = AUDIO_BLOCK_SAMPLES;
+        pitchControl += pitchSmoothingControl * steps;
+        pitchSmoothingControlCounter += steps;
+        if (pitchControl > notes[MAX_NOTE - 1])
+            pitchControl = notes[MAX_NOTE - 1];
+        else if (pitchControl < notes[MIN_NOTE])
+            pitchControl = notes[MIN_NOTE];
+    }
+
+    // notes[60] is 1.0 times the clock correction; Braids' tables are already at the
+    // Tracker's real rate, so take the correction out.
+    mods::braidsosc::render(voiceIndex, pitchControl / notes[60], block->data, AUDIO_BLOCK_SAMPLES);
+    return block;
+}
+#endif
 
 AUDIO_CORE_FLASH void AudioPlayMemory::setSlideOnPlay(bool upOrDown, uint8_t dstValue, float time)
 {

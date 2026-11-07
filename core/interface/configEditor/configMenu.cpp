@@ -11,6 +11,7 @@
 #include "humanize.h" // MT:
 #include "mods.h"     // MT:
 #include "swing.h"    // MT:
+#include "braidsosc.h" // MT:
 
 #include <array>
 
@@ -31,7 +32,7 @@ constexpr uint8_t projectMenuGroupCount = 10 + MT_MODS + MT_HAS_SWING + MT_HAS_H
 constexpr uint8_t generalMenuGroupCount = 12;
 #else
 constexpr uint8_t baseMenuGroupCount = 6 + MT_MODS; // MT: + Mods
-constexpr uint8_t projectMenuGroupCount = 10 + MT_MODS + MT_HAS_SWING + MT_HAS_HUMANIZE; // MT: + Mods, Global Swing, Humanize
+constexpr uint8_t projectMenuGroupCount = 10 + MT_MODS + MT_HAS_SWING + MT_HAS_HUMANIZE + MT_HAS_BRAIDS; // MT: + Mods, Global Swing, Humanize, Braids
 constexpr uint8_t generalMenuGroupCount = 12;
 #endif
 
@@ -122,6 +123,15 @@ const strItemTypeListTextWithAction projectHumanizeSetup{
 cMenuItem melProjectHumanize(menuProjectMods, "Humanize", projectHumanizeDesc, menuTypeItemListTextWithAction, &projectHumanizeSetup);
 #endif
 
+#if MT_HAS_BRAIDS
+const char projectBraidsDesc[] = { "Braids for this project: one instrument slot plays Mutable "
+                                   "Instruments' Braids oscillator instead of its sample. Pick the slot "
+                                   "and the model in Project Settings > Braids. " };
+const strItemTypeListTextWithAction projectBraidsSetup{
+    &mods::switches[static_cast<size_t>(mods::Mod::braids)], 2, onOffStateTexts, mods::projectSwitchChanged };
+cMenuItem melProjectBraids(menuProjectMods, "Braids", projectBraidsDesc, menuTypeItemListTextWithAction, &projectBraidsSetup);
+#endif
+
 const strItemTypeLabel projectModsDefaultsSetup{ "Config > Mods" };
 cMenuItem melProjectModsDefaults(menuProjectMods, "Defaults", nullptr, menuTypeItemLabel, &projectModsDefaultsSetup);
 
@@ -132,6 +142,26 @@ const char swingAmountDesc[] = { "25 to 75, as the Swing FX: 50 is no swing, abo
                                  "come later. Used when Global swing is On. " };
 const strItemTypeListValues swingAmountSetup{ &mods::swing::settings.amount, 0, 50, 1, 25 };
 cMenuItem melSwingAmount(menuProjectSwing, "Swing amount", swingAmountDesc, menuTypeItemListValues, &swingAmountSetup);
+#endif
+
+#if MT_HAS_BRAIDS // MT: Project Settings -> Braids
+cMenuGroup menuProjectBraids(menuProject, "Braids", 5);
+cMenuItem melBraidsOn(menuProjectBraids, "Braids", projectBraidsDesc, menuTypeItemListTextWithAction, &projectBraidsSetup);
+const char braidsInstrumentDesc[] = { "The instrument slot that plays Braids, 1 to 48; 0 is none. The slot "
+                                      "needs a sample loaded. Its volume, envelope, filter, panning, tune "
+                                      "and FX all apply. " };
+const char braidsModelDesc[] = { "The Braids model, as on the module: analog shapes, digital filters, "
+                                 "formants, FM, physical models, drums, wavetables and noise. " };
+const char braidsTimbreDesc[] = { "The module's Timbre knob: the main sound control of the model. " };
+const char braidsColorDesc[] = { "The module's Color knob: the second sound control of the model. " };
+const strItemTypeListValues braidsInstrumentSetup{ &mods::braidsosc::settings.instrument, 0, 48, 1, 0 };
+const strItemTypeListText braidsModelSetup{ &mods::braidsosc::settings.model, mods::braidsosc::kModelCount, mods::braidsosc::kModelNames };
+const strItemTypeListValues braidsTimbreSetup{ &mods::braidsosc::settings.timbre, 0, mods::braidsosc::kParameterMax, 1, 0 };
+const strItemTypeListValues braidsColorSetup{ &mods::braidsosc::settings.color, 0, mods::braidsosc::kParameterMax, 1, 0 };
+cMenuItem melBraidsInstrument(menuProjectBraids, "Instrument", braidsInstrumentDesc, menuTypeItemListValues, &braidsInstrumentSetup);
+cMenuItem melBraidsModel(menuProjectBraids, "Model", braidsModelDesc, menuTypeItemListText, &braidsModelSetup);
+cMenuItem melBraidsTimbre(menuProjectBraids, "Timbre", braidsTimbreDesc, menuTypeItemListValues, &braidsTimbreSetup);
+cMenuItem melBraidsColor(menuProjectBraids, "Color", braidsColorDesc, menuTypeItemListValues, &braidsColorSetup);
 #endif
 
 #if MT_HAS_HUMANIZE // MT: Project Settings -> Humanize
@@ -407,6 +437,15 @@ const char modsHumanizeDesc[] = { "Whether new projects start with Humanize on. 
 const strItemTypeListTextWithAction modsHumanizeSetup{
     &mods::defaults[static_cast<size_t>(mods::Mod::humanize)], 2, onOffStateTexts, mods::defaultsChanged };
 cMenuItem melModsHumanize(menuMods, "Humanize", modsHumanizeDesc, menuTypeItemListTextWithAction, &modsHumanizeSetup);
+#endif
+
+#if MT_HAS_BRAIDS
+const char modsBraidsDesc[] = { "Whether new projects start with Braids on. Each project has its own "
+                                "switch in Project Settings > Mods. Braids: one instrument slot plays "
+                                "the Braids oscillator. " };
+const strItemTypeListTextWithAction modsBraidsSetup{
+    &mods::defaults[static_cast<size_t>(mods::Mod::braids)], 2, onOffStateTexts, mods::defaultsChanged };
+cMenuItem melModsBraids(menuMods, "Braids", modsBraidsDesc, menuTypeItemListTextWithAction, &modsBraidsSetup);
 #endif
 #endif
 

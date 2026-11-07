@@ -38,4 +38,16 @@
 #define MT_HAS_SWING 0
 #endif
 
+// Braids voices: Original Tracker and its Linux port only (mono voices). Not in host tests.
+#ifndef MT_HAS_BRAIDS
+#if MT_MODS && !defined(PLATFORM_IMX) && !defined(MT_HOST_TEST)
+#define MT_HAS_BRAIDS 1
+#else
+#define MT_HAS_BRAIDS 0
+#endif
+#elif !MT_MODS
+#undef MT_HAS_BRAIDS
+#define MT_HAS_BRAIDS 0
+#endif
+
 #endif /* MODS_MODSBUILD_H_ */

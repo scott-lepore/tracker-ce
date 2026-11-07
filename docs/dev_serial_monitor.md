@@ -37,6 +37,9 @@ so the port is user-accessible, ignored by ModemManager and available as `/dev/t
 | `flash <file>` | `flashing, device will reboot` | File must exist in `/Firmware/`, name 31 chars or fewer. Calls the normal bootloader path |
 | `cfg notesin <0-3>` / `cfg trackch <track> <ch>` / `cfg save` | | Sets Config > MIDI "Notes in" (0 off, 1 USB, 2 jack, 3 both) and per-track in channels in RAM, as the menu would; `save` persists to EEPROM. For scripted tests |
 | `midilog <0\|1>` | `mi ...` lines | Every incoming note, CC and transport message from jack and USB, followed by what the firmware did with it (track and instrument, or why it was ignored). Clock is reported once per 96 pulses. `trackerdev.py midilog` streams it until Ctrl-C |
+| `voice <track> <instr> <note> <vel>` | | Plays a note straight on a track's voice (instr 1-48, vel 0 releases it). For audio tests |
+| `mute <track> <0\|1>` | | Mutes or unmutes a sample track |
+| `braids [<slot> <model> <timbre> <color>]` | `braids on= slot= model= timbre= color=` | Braids mod builds: sets the project's Braids slot (1-48, 0 turns the mod off), model (0-47) and knobs (0-127), as the Config menu would. No arguments: show them |
 | `reboot` | | |
 
 Every command ends with `ok` or `err <reason>`.
