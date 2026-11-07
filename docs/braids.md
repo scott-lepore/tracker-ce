@@ -26,18 +26,33 @@ Tracker note 60 (shown as C5) is MIDI middle C, 261.6 Hz.
   tables exactly before producing these. Tuning measures 440.00 Hz for A4.
 - A voice renders 16 samples at a time into the slot's `AudioPlayMemory` block, which
   then goes through the voice's envelope, filter and mixer as a sample would.
-- The 8 oscillators (about 17 KB each) live in external RAM.
+- Each oscillator (596 bytes) is in internal RAM; its delay lines (16 KB, used by the
+  physical models) are in external RAM, held through a pointer added to Braids'
+  `DigitalOscillator`. Internal RAM made a voice a third to a half cheaper than having it
+  all in external RAM.
+- **Load guard:** when an audio block takes 90 % or more of its time, the most recently
+  started Braids voice stops, one per block, until the load is back under. Without it,
+  8 voices of a heavy model locked the unit up.
 
 ## Cost on the Original
 
 | | Before | With Braids |
 |---|---|---|
-| Flash | 918,816 B (87.6 %) | 1,002,612 B (95.6 %) |
-| Internal RAM | 139,812 B | 140,872 B |
-| External RAM | 15,606,432 B | 15,742,240 B |
+| Flash | 918,816 B (87.6 %) | 1,003,060 B (95.7 %) |
+| Internal RAM (static) | 139,812 B | 145,704 B |
+| External RAM | 15,606,432 B | 15,737,504 B |
 
-CPU per voice is not measured yet: it has to be read on the device (`trackerdev.py stat`,
-audio load per block) with several voices sounding. The port's figures don't predict it.
+Audio load, measured on the device (`prof reset`, then `stat` over 1.2 s per step), all
+tracks stopped: 46 % idle. Each Braids voice adds 1.5 % (Clocked Noise) to 8 % (Triple
+Square). A sample voice adds about 0.3 %. Voices that fit under 80 % load:
+
+| Voices | Models |
+|---|---|
+| 8 | 27 models, among them CSAW, Buzz, Saw Sync, the FM models, Vosim, Vowel, Toy, Bowed, Blown, Kick, Wavetables, Granular and all noise models |
+| 7 | Sine/Triangle, Saw Swarm, ZLPF, ZPKF |
+| 6 | Morph, Saw/Square, Square Sub, Saw Sub, Square Sync, Triple Saw, Vowel FOF, Bell, Drum, Snare, Wave Map, Wave Paraphonic |
+| 5 | Harmonics, Plucked, Fluted, Cymbal |
+| 4 | Triple Square |
 
 ## Known limits of the proof of concept
 
